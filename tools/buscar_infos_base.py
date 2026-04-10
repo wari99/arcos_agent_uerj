@@ -1,6 +1,10 @@
 import requests
 from typing import Any, List
 from langchain.tools import tool
+import os
+from dotenv import load_dotev
+
+load_dotenv()
 
 @tool("buscar_infos_base")
 def buscar_infos_base(base_nome: str, limite: int = 3) -> Any:
@@ -12,7 +16,9 @@ def buscar_infos_base(base_nome: str, limite: int = 3) -> Any:
     - base_nome: nome da base a buscar
     - limite: quantos datasets retornar (default=3)
     """
-    url = f"https://dadosabertos.rj.gov.br/api/3/action/package_search?q={base_nome}"
+
+    buscar_bases_template = os.getenv("URL_BUSCAR_BASE")
+    url = buscar_bases_template.format(base_nome)
 
     try:
         resp = requests.get(url).json()

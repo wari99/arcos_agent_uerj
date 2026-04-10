@@ -3,6 +3,10 @@ from typing import Any, List, Optional, Dict
 from langchain.tools import tool
 import re
 from collections import Counter
+import os
+from dotenv import load_dotev
+
+load_dotenv()
 
 @tool("listar_recursos_da_base")
 def listar_recursos_da_base(
@@ -23,7 +27,9 @@ def listar_recursos_da_base(
     """
     
     try:
-        url = f"https://dadosabertos.rj.gov.br/api/3/action/package_show?id={package_id}"
+        listar_recursos_template = os.getenv("URL_CONSULTAR_PROCESSAR_ARQUIVO")
+        url = listar_recursos_template.format(package_id)
+
         resp = requests.get(url, timeout=30)
         
         if resp.status_code != 200:
