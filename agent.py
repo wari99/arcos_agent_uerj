@@ -28,9 +28,9 @@ load_dotenv()
 class Context:
     user_id: str
 
-@dataclass
-class ResponseFormat:
-    summary: str
+#@dataclass
+#class ResponseFormat:
+#    summary: str
 
 model = ChatVertexAI(
     model_name=os.getenv("ROOT_AGENT_MODEL", "gemini-2.5-flash"),  
@@ -50,7 +50,6 @@ agent = create_agent(
         baixar_arquivo_dados,        
         analisar_dados_arquivo, 
         gerenciar_cache_sessao,  
-        #consultar_e_processar_arquivo,     
         gerar_graficos,              
     ],
 )
@@ -62,7 +61,6 @@ graph.set_entry_point("inicio")
 
 checkpointer = InMemorySaver()
 agent_memory = graph.compile(checkpointer=checkpointer)
-# - -- -  - - - -- - -- - -- - - -- - 
 
 print("💬💬💬 Bem-vindo ao ARCOS-RJ! Digite '/sair' para encerrar.\n")
 

@@ -2,7 +2,7 @@ import requests
 from typing import Any, List
 from langchain.tools import tool
 import os
-from dotenv import load_dotev
+from dotenv import load_dotenv
 
 load_dotenv()
 

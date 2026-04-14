@@ -7,7 +7,7 @@ from dotenv import load_dotev
 load_dotenv()
 
 @tool("listar_bases")
-def listar_bases(_: str = "") -> Any:
+def listar_bases() -> Any:
     """
     Retorna a lista de todas as bases disponíveis no Dados Abertos do RJ.
     

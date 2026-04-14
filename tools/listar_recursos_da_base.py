@@ -4,7 +4,7 @@ from langchain.tools import tool
 import re
 from collections import Counter
 import os
-from dotenv import load_dotev
+from dotenv import load_dotenv
 
 load_dotenv()
 
