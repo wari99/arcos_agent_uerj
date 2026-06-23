@@ -1,0 +1,557 @@
+import os
+import io
+import zipfile
+import tempfile
+import requests
+import pandas as pd
+import shutil
+import hashlib
+from typing import Any, Dict, Optional
+from langchain.tools import tool
+import re 
+import openpyxl
+
+from tools.commons.settings import (
+    TIMEOUT_REQUISICAO,
+    AMOSTRA_DETECCAO,
+    LIMIAR_SEPARADOR,
+    MAX_ARQUIVOS,
+    ENCODING_PADRAO,
+    SEPARADORES_CSV,
+    ENCODINGS_SUPORTADOS,
+    REGEX_PATTERNS
+)
+
+_pasta_temporaria_global = None
+_cache_arquivos: Dict[str, Dict] = {}
+
+# =============== TOOL FUNCTIONS
+
+@tool("baixar_arquivo_dados")
+def baixar_arquivo_dados(params: dict) -> Any:
+    """Baixa e processa arquivos de uma base de dados"""
+    
+    try:
+        package_id = params.get("package_id", "").strip()
+        file_filter = params.get("file_filter", "").strip()
+        
+        if not package_id:
+            return _criar_resposta_erro("Parâmetro 'package_id' obrigatório")
+        
+        print(f"🔍 Base: '{package_id}' | Filtro: '{file_filter}'")
+        
+        url = f"https://dadosabertos.rj.gov.br/api/3/action/package_show?id={package_id}"
+        try:
+            resp = requests.get(url, timeout=TIMEOUT_REQUISICAO)
+            resp.raise_for_status()
+            data = resp.json()
+        except requests.exceptions.RequestException as e:
+            return _criar_resposta_erro(f"Erro ao buscar API: {e}")
+        
+        if not data.get("success"):
+            return _criar_resposta_erro("Pacote não encontrado ou inacessível")
+        
+        resources = data["result"].get("resources", [])
+        
+        if not resources:
+            return _criar_resposta_erro("Nenhum recurso encontrado")
+        
+        if file_filter:
+            resources = _filtrar_recursos_inteligentemente(resources, file_filter)
+        
+        if not resources:
+            return _criar_resposta_erro(f"Nenhum arquivo com filtro: '{file_filter}'")
+        
+        resources = resources[:MAX_ARQUIVOS]
+        print(f"📁 {len(resources)} arquivo(s)")
+        
+        pasta_temp = _criar_pasta_temporaria()
+        resultados = {}
+        stats = {"sucesso": 0, "erro": 0, "cache": 0, "novos": 0}
+        
+        for resource in resources:
+            resultado = _baixar_e_processar_arquivo(resource, pasta_temp)
+            nome = resource.get("name", "arquivo")
+            
+            if not resultado.get("sucesso"):
+                resultados[nome] = resultado
+                stats["erro"] += 1
+                continue
+            
+            df = resultado["df"]
+            memoria_mb = df.memory_usage(deep=True).sum() / (1024*1024)
+            
+            resultados[nome] = {
+                "linhas": len(df),
+                "colunas": len(df.columns),
+                "nomes_colunas": list(df.columns),
+                "memoria_mb": round(memoria_mb, 2),
+                "arquivo_local": resultado["arquivo_local"],
+                "tipo_arquivo": resultado.get("tipo_arquivo", "desconhecido"),
+                "do_cache": resultado.get("do_cache", False),
+                "sucesso": True
+            }
+            
+            stats["sucesso"] += 1
+            if resultado.get("do_cache"):
+                stats["cache"] += 1
+            else:
+                stats["novos"] += 1
+        
+        resultados["_resumo"] = {
+            "pasta_temporaria": pasta_temp,
+            "arquivos_solicitados": len(resources),
+            "processados_com_sucesso": stats["sucesso"],
+            "processados_com_erro": stats["erro"],
+            "do_cache": stats["cache"],
+            "downloads_novos": stats["novos"],
+            "sucesso_geral": stats["sucesso"] > 0
+        }
+        
+        return resultados
+        
+    except Exception as e:
+        return _criar_resposta_erro(f"Erro geral: {e}")
+
+# =============== FUNCOES PUBLICAS
+
+def obter_pasta_temporaria() -> Optional[str]:
+    """Retorna o caminho da pasta temporária atual"""
+    return _pasta_temporaria_global
+
+def obter_cache_arquivos() -> Dict:
+    """Retorna o cache de arquivos para outras tools"""
+    return _cache_arquivos
+
+def listar_cache_arquivos() -> Dict:
+    """Lista arquivos atualmente no cache"""
+    arquivos_cache = []
+    total_mb = 0
+    
+    for info in _cache_arquivos.values():
+        if os.path.exists(info["arquivo_local"]):
+            arquivos_cache.append({
+                "nome": info["nome"],
+                "linhas": info["linhas"],
+                "colunas": info["colunas"],
+                "tamanho_mb": info["tamanho_mb"],
+                "tipo_arquivo": info.get("tipo_arquivo", "desconhecido"),
+                "arquivo_local": info["arquivo_local"]
+            })
+            total_mb += info["tamanho_mb"]
+    
+    return {
+        "total_arquivos_cache": len(arquivos_cache),
+        "total_tamanho_mb": round(total_mb, 2),
+        "arquivos": arquivos_cache
+    }
+
+def limpar_pasta_temporaria_manual() -> Dict:
+    """Limpa pasta temporária e cache"""
+    global _pasta_temporaria_global, _cache_arquivos
+    
+    if not (_pasta_temporaria_global and os.path.exists(_pasta_temporaria_global)):
+        return {"status": "info", "mensagem": "Nenhuma pasta temporária para remover"}
+    
+    try:
+        shutil.rmtree(_pasta_temporaria_global)
+        print(f"🗑️ Pasta removida: {_pasta_temporaria_global}")
+        
+        _pasta_temporaria_global = None
+        _cache_arquivos.clear()
+        print("🧹 Cache limpo")
+        
+        return {"status": "sucesso", "mensagem": "Pasta e cache removidos"}
+    except Exception as e:
+        return {"status": "erro", "mensagem": f"Erro ao remover: {e}"}
+
+# =============== FUNCOES INTERNAS DETECTAR TIPO
+
+def _detectar_tipo_arquivo(nome: str, mimetype: str) -> str:
+    """
+    ✅ CORRIGIDO - Detecta tipo de arquivo com prioridade correta
+    """
+    nome_lower = nome.lower()
+    mime_lower = (mimetype or "").lower()
+    
+    print(f"   🔍 Detecção: nome='{nome_lower}' | mime='{mime_lower}'")
+    
+    if nome_lower.endswith(".xlsx"):
+        print(f"   ✅ Detectado: XLSX (por extensão)")
+        return "xlsx"
+    
+    if "spreadsheet" in mime_lower or "ms-excel" in mime_lower:
+        print(f"   ✅ Detectado: XLSX (por MIME type)")
+        return "xlsx"
+    
+    if "openxmlformats" in mime_lower or "officedocument" in mime_lower:
+        print(f"   ✅ Detectado: XLSX (por MIME OpenXML)")
+        return "xlsx"
+    
+    if nome_lower.endswith(".zip"):
+        print(f"   ✅ Detectado: ZIP (por extensão)")
+        return "zip"
+    
+    if "zip" in mime_lower:
+        print(f"   ✅ Detectado: ZIP (por MIME type)")
+        return "zip"
+    
+    if nome_lower.endswith(".csv"):
+        print(f"   ✅ Detectado: CSV (por extensão)")
+        return "csv"
+    
+    if "csv" in mime_lower or "text/plain" in mime_lower:
+        print(f"   ✅ Detectado: CSV (por MIME type)")
+        return "csv"
+    
+    if nome_lower.endswith(".pdf") or "pdf" in mime_lower:
+        print(f"   ⚠️ Tipo: PDF (não suportado)")
+        return "pdf"
+    
+    print(f"   ⚠️ Tipo desconhecido: {nome_lower}")
+    return "desconhecido"
+
+# =============== FUNCOES INTERNAS - CRIAR PASTA E CACHE
+
+def _criar_pasta_temporaria() -> str:
+    """Cria ou retorna pasta temporária existente"""
+    global _pasta_temporaria_global
+    
+    if _pasta_temporaria_global is None or not os.path.exists(_pasta_temporaria_global):
+        _pasta_temporaria_global = tempfile.mkdtemp(prefix="arcos_rj_")
+        print(f"📂 Pasta criada: {_pasta_temporaria_global}")
+    
+    return _pasta_temporaria_global
+
+def _gerar_chave_cache(url: str, nome: str) -> str:
+    """Gera chave única para cache"""
+    conteudo = f"{url}|{nome}"
+    return hashlib.md5(conteudo.encode()).hexdigest()[:16]
+
+def _arquivo_existe_no_cache(chave: str) -> Optional[Dict]:
+    """Verifica se arquivo já foi baixado e ainda existe"""
+    if chave not in _cache_arquivos:
+        return None
+    
+    info = _cache_arquivos[chave]
+    
+    if not os.path.exists(info.get("arquivo_local", "")):
+        del _cache_arquivos[chave]
+        return None
+    
+    print(f"♻️ Cache: {info['nome']}")
+    return info
+
+def _salvar_cache(chave: str, info: Dict) -> None:
+    """Salva arquivo no cache"""
+    _cache_arquivos[chave] = info
+    print(f"💾 Cache: {info['nome']}")
+
+def _validar_dataframe(df: Optional[pd.DataFrame]) -> bool:
+    """Valida se DataFrame é válido"""
+    return df is not None and not df.empty
+
+def _criar_resposta_erro(mensagem: str) -> Dict:
+    """Cria resposta padronizada de erro"""
+    return {"erro": mensagem, "sucesso": False}
+
+# =============== FUNCOES INTERNAS - ENCODING
+
+def _detectar_encoding(conteudo_bytes: bytes) -> str:
+    """Detecta encoding do arquivo testando sequencialmente"""
+    for encoding in ENCODINGS_SUPORTADOS:
+        try:
+            conteudo_bytes.decode(encoding)
+            if encoding != ENCODING_PADRAO:
+                print(f"🔄 Encoding detectado: {encoding}")
+            return encoding
+        except UnicodeDecodeError:
+            continue
+    
+    print("⚠️ Usando UTF-8 com substituição de caracteres")
+    return ENCODING_PADRAO
+
+def _detectar_separador(amostra: str) -> str:
+    """Detecta melhor separador para CSV"""
+    contadores = {sep: amostra.count(sep) for sep in SEPARADORES_CSV}
+    
+    separador_melhor = max(contadores, key=contadores.get)
+    
+    if contadores[separador_melhor] < LIMIAR_SEPARADOR:
+        separador_melhor = ';'
+    
+    if separador_melhor == ';':
+        print("🇧🇷 Separador: ponto-e-vírgula")
+    elif separador_melhor == ',':
+        print("🌍 Separador: vírgula")
+    else:
+        print("📊 Separador: tabulação")
+    
+    return separador_melhor
+
+# =============== FUNCOES INTERNAS - PROCESSAR ARQUIVOS
+
+def _processar_xlsx(conteudo_bytes: bytes) -> Optional[pd.DataFrame]:
+    """
+    Processa arquivo XLSX (Excel).
+    
+    Características:
+    - Lê a primeira planilha por padrão
+    - Detecta cabeçalhos automaticamente
+    - Trata valores vazios
+    - Limpa colunas/linhas totalmente vazias
+    
+    Args:
+        conteudo_bytes: Conteúdo do arquivo em bytes
+    
+    Returns:
+        DataFrame ou None se falhar
+    """
+    try:
+        arquivo_bytes = io.BytesIO(conteudo_bytes)
+        
+        df = pd.read_excel(
+            arquivo_bytes,
+            sheet_name=0,  
+            engine='openpyxl',
+            header=0  
+        )
+        
+        print(f"✅ XLSX processado: {len(df)} linhas, {len(df.columns)} colunas")
+        print(f"   Colunas: {list(df.columns)[:5]}..." if len(df.columns) > 5 else f"   Colunas: {list(df.columns)}")
+        
+
+        if df.empty:
+            print("⚠️ XLSX está vazio (sem dados)")
+            return None
+        
+        df = df.dropna(axis=1, how='all')
+        df = df.dropna(axis=0, how='all')
+        
+        if df.empty:
+            print("❌ XLSX não contém dados válidos após limpeza")
+            return None
+        
+        print(f"✅ Após limpeza: {len(df)} linhas, {len(df.columns)} colunas")
+        return df
+        
+    except Exception as e:
+        print(f"❌ Erro ao processar XLSX: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
+
+def _processar_csv(conteudo_bytes: bytes) -> Optional[pd.DataFrame]:
+    """Processa arquivo CSV com detecção de encoding e separador"""
+    try:
+        encoding = _detectar_encoding(conteudo_bytes)
+        amostra = conteudo_bytes[:10000].decode(encoding, errors='ignore')
+        separador = _detectar_separador(amostra)
+        
+        print(f"   🔄 Encoding detectado: {encoding}")
+        print(f"   🇧🇷 Separador: {separador}")
+        
+        df = pd.read_csv(
+            io.BytesIO(conteudo_bytes),
+            encoding=encoding,
+            sep=separador,
+            on_bad_lines='skip',  
+            engine='python'      
+        )
+        
+        return df if _validar_dataframe(df) else None
+        
+    except Exception as e:
+        print(f"   ❌ Erro ao processar CSV: {str(e)}")
+        return None
+
+
+def _processar_zip(conteudo_bytes: bytes) -> Optional[pd.DataFrame]:
+    """Extrai e processa CSV de ZIP"""
+    try:
+        with zipfile.ZipFile(io.BytesIO(conteudo_bytes)) as zip_ref:
+            csvs = [f for f in zip_ref.namelist() if f.lower().endswith('.csv')]
+            
+            if not csvs:
+                print("❌ ZIP não contém CSV")
+                return None
+            
+            arquivo_csv = csvs[0]
+            print(f"📄 Extraindo: {arquivo_csv}")
+            
+            with zip_ref.open(arquivo_csv) as f:
+                encoding = _detectar_encoding(f.read()[:AMOSTRA_DETECCAO])
+                f.seek(0)
+                conteudo = f.read().decode(encoding, errors='replace')
+                
+                separador = _detectar_separador(conteudo[:AMOSTRA_DETECCAO])
+                return pd.read_csv(io.StringIO(conteudo), sep=separador)
+                
+    except zipfile.BadZipFile:
+        print("❌ ZIP corrompido")
+        return None
+    except Exception as e:
+        print(f"❌ Erro ao processar ZIP: {e}")
+        return None
+
+# =============== FUNCAO PRINCIPAL - DOWNLOAD E PROCESSAMENTO
+
+def _baixar_e_processar_arquivo(resource: Dict, pasta_temp: str) -> Dict:
+    """
+    Baixa e processa um arquivo com suporte a CSV, XLSX e ZIP.
+    
+    Fluxo:
+    1. Detecta tipo de arquivo (CSV, XLSX, ZIP)
+    2. Verifica cache
+    3. Baixa se necessário
+    4. Processa conforme tipo
+    5. Salva em cache
+    
+    Args:
+        resource: Recurso da API
+        pasta_temp: Pasta temporária para salvar arquivos
+    
+    Returns:
+        Dict com sucesso/erro e dados do arquivo
+    """
+    url = resource.get("url")
+    nome = resource.get("name", "arquivo_sem_nome")
+    mimetype = resource.get("mimetype", "")
+    
+    chave = _gerar_chave_cache(url, nome)
+    
+    cache_info = _arquivo_existe_no_cache(chave)
+    if cache_info:
+        return {
+            "df": cache_info["dataframe"],
+            "nome": nome,
+            "arquivo_local": cache_info["arquivo_local"],
+            "tipo_arquivo": cache_info.get("tipo_arquivo", "desconhecido"),
+            "do_cache": True,
+            "sucesso": True
+        }
+    
+    tipo_arquivo = _detectar_tipo_arquivo(nome, mimetype)
+    print(f"\n⬇️ Baixando: {nome}")
+    print(f"   Tipo detectado: {tipo_arquivo.upper()}")
+    
+    try:
+        response = requests.get(url, timeout=TIMEOUT_REQUISICAO, stream=True)
+        response.raise_for_status()
+        conteudo = response.content
+        tamanho_mb = len(conteudo) / (1024*1024)
+        print(f"   Tamanho: {tamanho_mb:.2f} MB")
+        
+    except requests.exceptions.Timeout:
+        return _criar_resposta_erro(f"Timeout ({TIMEOUT_REQUISICAO}s) ao baixar arquivo")
+    except requests.exceptions.RequestException as e:
+        return _criar_resposta_erro(f"Erro de rede ao baixar: {e}")
+    
+    if tipo_arquivo == "xlsx":
+        print("📊 Processando como XLSX...")
+        df = _processar_xlsx(conteudo)
+    elif tipo_arquivo == "zip":
+        print("📦 Processando como ZIP...")
+        df = _processar_zip(conteudo)
+    elif tipo_arquivo == "csv":
+        print("📄 Processando como CSV...")
+        df = _processar_csv(conteudo)
+    else:
+        print(f"⚠️ Tipo desconhecido, tentando como CSV...")
+        df = _processar_csv(conteudo)
+    
+    if not _validar_dataframe(df):
+        return _criar_resposta_erro(
+            f"DataFrame vazio ou inválido após processamento de {tipo_arquivo.upper()}"
+        )
+    
+    arquivo_local = os.path.join(pasta_temp, nome)
+    try:
+        with open(arquivo_local, 'wb') as f:
+            f.write(conteudo)
+        print(f"✅ Arquivo salvo: {arquivo_local}")
+    except IOError as e:
+        return _criar_resposta_erro(f"Erro ao salvar arquivo: {e}")
+
+    print(f"✅ {len(df):,} linhas × {len(df.columns)} colunas")
+    memoria_mb = df.memory_usage(deep=True).sum() / (1024*1024)
+    print(f"   Memória: {memoria_mb:.2f} MB")
+    
+    info_cache = {
+        "nome": nome,
+        "arquivo_local": arquivo_local,
+        "dataframe": df,
+        "url_original": url,
+        "tipo_arquivo": tipo_arquivo,
+        "tamanho_mb": round(len(conteudo) / (1024*1024), 2),
+        "linhas": len(df),
+        "colunas": len(df.columns),
+        "nomes_colunas": list(df.columns),
+    }
+    
+    _salvar_cache(chave, info_cache)
+    
+    return {
+        "df": df,
+        "nome": nome,
+        "arquivo_local": arquivo_local,
+        "tipo_arquivo": tipo_arquivo,
+        "do_cache": False,
+        "sucesso": True
+    }
+
+
+def _filtrar_recursos_inteligentemente(recursos: list, file_filter: str) -> list:
+    """
+    Filtra recursos por detecção de padrão estrutural.
+    
+    - YYYY_MM (sem dia) → prioriza arquivos que NÃO têm YYYY_MM_DD no nome
+    - YYYY_MM_DD (com dia) → busca apenas arquivos com aquele dia
+    - Outros → busca genérica (contains)
+    """
+    if not file_filter or not file_filter.strip():
+        return recursos
+    
+    filtro_lower = file_filter.lower().strip()
+    match_data = re.search(REGEX_PATTERNS['data_filtro'], filtro_lower)
+    
+    # REGRA 1: Data completa YYYY_MM_DD → arquivo daquele dia 
+    if match_data and match_data.group(4):
+        data_str = f"{match_data.group(1)}_{match_data.group(2)}_{match_data.group(4)}"
+        resultado = [
+            r for r in recursos
+            if data_str in r.get("name", "")
+        ]
+        print(f"   🎯 Padrão: dia {data_str} → {len(resultado)} arquivo(s)")
+        return resultado
+    
+    # REGRA 2: Apenas mês YYYY_MM -> prioriza arquivos SEM dia no nome 
+    if match_data and not match_data.group(4):
+        data_str = f"{match_data.group(1)}_{match_data.group(2)}"
+        
+        # Separar: arquivos que TÊM o mês mas NÃO têm dia (padrão mensal/consolidado)
+        mensais = [
+            r for r in recursos
+            if data_str in r.get("name", "")
+            and not re.search(REGEX_PATTERNS['data_completa_nome'], r.get("name", ""))
+        ]
+        
+        # Arquivos que TÊM o mês E têm dia (padrão diário)
+        diarios = [
+            r for r in recursos
+            if data_str in r.get("name", "")
+            and re.search(REGEX_PATTERNS['data_completa_nome'], r.get("name", ""))
+        ]
+        
+        if mensais:
+            print(f"   🎯 Padrão: mês {data_str} → {len(mensais)} arquivo(s) mensal(is)")
+            return mensais
+        
+        print(f"   ⚠️ Padrão: mês {data_str} → sem mensal, usando {len(diarios)} diário(s)")
+        return diarios
+    
+    # REGRA 3: Busca genérica 
+    resultado = [r for r in recursos if filtro_lower in r.get("name", "").lower()]
+    print(f"   🔍 Filtro genérico '{filtro_lower}' → {len(resultado)} arquivo(s)")
+    return resultado
