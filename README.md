@@ -3,7 +3,7 @@
 ![GitHub Status](https://img.shields.io/badge/Status-Work%20In%20Progress-yellow)
 ![Python](https://img.shields.io/badge/python-=3.12.10-blue?logo=python)
 ![Langchain](https://img.shields.io/badge/LangChain-ffffff?logo=langchain&logoColor=green)
-![Gemini](https://img.shields.io/badge/Google-Gemini-blue?logo=google)
+![Google Gemini](https://img.shields.io/badge/Google%20Gemini-886FBF?logo=googlegemini&logoColor=fff)
 
 ---
 
@@ -11,7 +11,7 @@
 
 **ARCOS-RJ** é um agente de IA conversacional que está em desenvolvimento como trabalho de conclusão de curso na disciplina de Projeto Final do bacharelado em Ciência da Computação na Universidade do Estado do Rio de Janeiro (UERJ), sob orientação da Profa. Dra. Karla Figueiredo e co-orientação de Me. Fabio Cardoso.
 
-O sistema funciona como um assistente inteligente que facilita o acesso e análise de dados públicos do Rio de Janeiro, abstraindo a complexidade da navegação em plataformas de dados abertos através de uma interface conversacional natural.
+O sistema funciona como um assistente inteligente que facilita o acesso e análise de dados públicos do Rio de Janeiro, abstraindo a complexidade da navegação em plataformas de dados abertos através de uma interface conversacional.
 
 ---
 
@@ -33,6 +33,8 @@ ARCOS-RJ se integra à **API de Dados Abertos do RJ**, abstraindo a complexidade
 - **Baixar** e processar arquivos em múltiplos formatos
 - **Analisar** os dados conforme solicitado
 - **Apresentar** resultados de forma acessível
+
+Dessa forma, tanto um usuário leigo quanto um usuário mais experiente e conhecedor da plataforma de Dados Abertos é capaz de navegar e obter informações com o uso de linguagem natural.
 
 ---
 
