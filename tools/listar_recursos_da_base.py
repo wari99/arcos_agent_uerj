@@ -41,20 +41,35 @@ def listar_recursos_da_base(
                 "sucesso": False
             }
         
-        recursos_filtrados = [
-            {
+        recursos_filtrados = []
+        for r in resources:
+            # Correspondência com termo (antigo _recurso_correspondente)
+            if termo_busca:
+                texto = f"{r.get('name', '')} {r.get('description', '')}".lower()
+                if not all(t in texto for t in termo_busca.lower().split()):
+                    continue
+            
+            # Formatação de tamanho (antigo _formatar_tamanho)
+            size_bytes = r.get("size")
+            if not size_bytes:
+                size_fmt = "N/A"
+            else:
+                size_fmt = f"{size_bytes} B"
+                for unidade, divisor in [('GB', 1024**3), ('MB', 1024**2), ('KB', 1024)]:
+                    if size_bytes >= divisor:
+                        size_fmt = f"{size_bytes/divisor:.1f} {unidade}"
+                        break
+            
+            recursos_filtrados.append({
                 "id": r.get("id"),
                 "name": r.get("name"),
                 "description": r.get("description", ""),
                 "format": r.get("format", "").upper(),
-                "size": _formatar_tamanho(r.get("size")),
+                "size": size_fmt,
                 "url": r.get("url"),
                 "created": r.get("created", "")[:10],
                 "last_modified": r.get("last_modified", "")[:10]
-            }
-            for r in resources
-            if _recurso_correspondente(r, termo_busca)
-        ]
+            })
         
         recursos_limitados = recursos_filtrados[:limite]
         
@@ -68,10 +83,14 @@ def listar_recursos_da_base(
                 "palavras_frequentes": _detectar_palavras(nomes)
             }
         
+        # Truncamento da descrição (antigo _truncar)
+        notes = package_info.get("notes", "")
+        package_description = notes[:200] + "..." if len(notes) > 200 else notes
+        
         return {
             "package_id": package_id,
             "package_title": package_info.get("title", ""),
-            "package_description": _truncar(package_info.get("notes", "")),
+            "package_description": package_description,
             "total_recursos_na_base": len(resources),
             "recursos_encontrados": len(recursos_filtrados),
             "recursos_retornados": len(recursos_limitados),
@@ -115,7 +134,7 @@ def _detectar_prefixos(nomes: List[str]) -> List[Dict]:
             resultados.append({
                 "prefixo": prefixo,
                 "frequencia": freq,
-                "percentual": _percentual(freq, len(nomes)),
+                "percentual": round((freq / len(nomes)) * 100, 1),
                 "exemplo": exemplo
             })
     
@@ -124,19 +143,25 @@ def _detectar_prefixos(nomes: List[str]) -> List[Dict]:
 def _detectar_estruturas(nomes: List[str]) -> List[Dict]:
     """Detecta padrões de estrutura de nomes"""
     estruturas = Counter()
+    nome_para_template = {}
     
+    # Conversão para template incorporada (antigo _converter_para_template)
     for nome in nomes:
-        template = _converter_para_template(nome)
+        template = nome
+        for chave, padrao in REGEX_PATTERNS.items():
+            template = re.sub(padrao, REGEX_REPLACEMENTS[chave], template)
+        template = re.sub(r'[_\-\s]+', '_', template).upper()
+        nome_para_template[nome] = template
         estruturas[template] += 1
     
     resultados = []
     for estrutura, freq in estruturas.most_common(3):
         if freq > 1:
-            exemplo = next((n for n in nomes if _converter_para_template(n) == estrutura), "")
+            exemplo = next((n for n in nomes if nome_para_template[n] == estrutura), "")
             resultados.append({
                 "template": estrutura,
                 "frequencia": freq,
-                "percentual": _percentual(freq, len(nomes)),
+                "percentual": round((freq / len(nomes)) * 100, 1),
                 "exemplo": exemplo
             })
     
@@ -186,42 +211,8 @@ def _detectar_palavras(nomes: List[str]) -> List[Dict]:
             resultados.append({
                 "palavra": palavra,
                 "frequencia": freq,
-                "percentual": _percentual(freq, len(nomes)),
+                "percentual": round((freq / len(nomes)) * 100, 1),
                 "exemplos": exemplos
             })
     
     return resultados
-
-# ================= AUXILIARES
-
-def _truncar(texto: str, limite: int = 200) -> str:
-    """Trunca texto se exceder limite"""
-    return texto[:limite] + "..." if len(texto) > limite else texto
-
-def _percentual(freq: int, total: int) -> float:
-    """Calcula percentual"""
-    return round((freq / total) * 100, 1) if total > 0 else 0
-
-def _converter_para_template(nome: str) -> str:
-    """Converte nome em template genérico"""
-    template = nome
-    for chave, padrao in REGEX_PATTERNS.items():
-        template = re.sub(padrao, REGEX_REPLACEMENTS[chave], template)
-    template = re.sub(r'[_\-\s]+', '_', template)
-    return template.upper()
-
-def _recurso_correspondente(recurso: Dict, termo: str) -> bool:
-    """Verifica se recurso corresponde ao termo de busca"""
-    if not termo:
-        return True
-    texto = f"{recurso.get('name', '')} {recurso.get('description', '')}".lower()
-    return all(t in texto for t in termo.lower().split())
-
-def _formatar_tamanho(size_bytes: int) -> str:
-    """Converte bytes para formato legível"""
-    if not size_bytes:
-        return "N/A"
-    for unidade, divisor in [('GB', 1024**3), ('MB', 1024**2), ('KB', 1024)]:
-        if size_bytes >= divisor:
-            return f"{size_bytes/divisor:.1f} {unidade}"
-    return f"{size_bytes} B"
