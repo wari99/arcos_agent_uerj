@@ -49,15 +49,21 @@ agent = create_agent(
     ],
 )
 
+# ============================================================
 # WIP: STATE GRAPH DO AGENTE
+# ============================================================
 graph = StateGraph(AgentState)
+
 graph.add_node("inicio", agent)
 graph.set_entry_point("inicio")
 
 checkpointer = InMemorySaver()
-agent_memory = graph.compile(checkpointer=checkpointer)
 
-# - -- -  - - - -- - -- - -- - - -- - 
+agent_memory = graph.compile(checkpointer=checkpointer)
+# ============================================================
+# 
+# ============================================================
+
 
 print("💬💬💬 Bem-vindo ao ARCOS-RJ! Digite '/sair' para encerrar.\n")
 
@@ -70,16 +76,16 @@ while True:
         try:
             limpeza_result = limpar_pasta_temporaria_manual()  
             print("ARCOS-RJ:", limpeza_result.get('mensagem', 'Limpeza concluída!'))
+
         except ImportError as e:
             print(f"ARCOS-RJ: Erro no import da limpeza: {e}")
         except Exception as e:
             print(f"ARCOS-RJ: Erro na limpeza: {e}")
-        
         break
+
     try:
         resultado = agent_memory.invoke(
-            {"messages": [{"role": "user", "content": pergunta}]},
-            config={"thread_id": "1"}
+            {"messages": [{"role": "user", "content": pergunta}]}, config={"thread_id": "1"}
         )
 
         mensagens = resultado["messages"][-1].content

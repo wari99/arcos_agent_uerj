@@ -75,7 +75,7 @@ ferramentas = """
   │ contar_linhas       │ "Quantas linhas tem?"                    │ -                                        │
   │ mostrar_colunas     │ "Que colunas tem?"                       │ -                                        │
   │ preview             │ "Mostra as primeiras linhas"             │ -                                        │
-  │ agrupar_e_somar ⭐  │ "Qual o total de X?"                     │ filter_column, filter_value, sum_column   │
+  │ agrupar_e_somar   │ "Qual o total de X?"                     │ filter_column, filter_value, sum_column   │
   │ contar_por_valor    │ "Quantas linhas têm valor X?"            │ column, value                            │
   │ filtrar_por_turno   │ "Quantos de manhã?"                      │ turno (0-3), filter_column, filter_value  │
   │ contar_por_turno    │ "Qual turno teve mais?"                   │ filter_column, filter_value              │
