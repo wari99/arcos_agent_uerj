@@ -1,9 +1,19 @@
+from datetime import datetime
+
 """
 Configurações globais e constantes da aplicação.
 Centraliza os valores reutilizáveis em múltiplos módulos.
-"""
 
-from datetime import datetime
+Divisões das configs:
+1. DEFINIÇÃO DE INFORMAÇÕES TEMPORAIS
+2. DEFINIÇÃO DAS FAIXAS HORÁRIAS (TURNOS)
+3. OPERAÇÕES DISPONÍVEIS
+4. CONFIGURAÇÕES DE FORMATO E ENCODINGS
+5. CORES PARA GRÁFICOS
+6. VÁRIAVEIS DE LIMITES E CONFIGURAÇÕES
+7. DETECÇÃO DE PADRÕES EM NOMES DE ARQUIVOS
+
+"""
 
 # ========== DEFINIÇÃO DE INFORMAÇÕES TEMPORAIS ==========
 

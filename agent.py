@@ -6,7 +6,6 @@ from typing import Any, Dict, List, Optional
 from dotenv import load_dotenv
 
 from langchain_google_vertexai import ChatVertexAI
-
 from langchain.tools import tool
 from langchain.agents import create_agent, AgentState
 from langgraph.graph import StateGraph
@@ -17,10 +16,9 @@ from prompt import prompt
 from tools.listar_bases import listar_bases
 from tools.buscar_infos_base import buscar_infos_base
 from tools.listar_recursos_da_base import listar_recursos_da_base
-from tools.baixar_arquivo_dados import baixar_arquivo_dados, limpar_pasta_temporaria_manual
+from tools.baixar_arquivo_dados import baixar_arquivo_dados
+from tools.gerenciar_cache_sessao import gerenciar_cache_sessao, limpar_pasta_temporaria_manual
 from tools.analisar_dados_arquivo import analisar_dados_arquivo
-from tools.gerenciar_cache_sessao import gerenciar_cache_sessao
-
 from tools.gerar_graficos import gerar_graficos  
 
 load_dotenv()
@@ -29,17 +27,12 @@ load_dotenv()
 class Context:
     user_id: str
 
-@dataclass
-class ResponseFormat:
-    summary: str
-
 model = ChatVertexAI(
-    model_name=os.getenv("ROOT_AGENT_MODEL", "gemini-2.5-flash"),  
+    model_name=os.getenv("ROOT_AGENT_MODEL"),  
     project=os.getenv("GOOGLE_CLOUD_PROJECT"),                     
-    location=os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1"),   
+    location=os.getenv("GOOGLE_CLOUD_LOCATION"),   
     temperature=0.5,
 )
-
 
 agent = create_agent(
     model=model,
@@ -52,7 +45,6 @@ agent = create_agent(
         baixar_arquivo_dados,        
         analisar_dados_arquivo, 
         gerenciar_cache_sessao,  
-        #consultar_e_processar_arquivo,     
         gerar_graficos,              
     ],
 )
@@ -64,6 +56,7 @@ graph.set_entry_point("inicio")
 
 checkpointer = InMemorySaver()
 agent_memory = graph.compile(checkpointer=checkpointer)
+
 # - -- -  - - - -- - -- - -- - - -- - 
 
 print("💬💬💬 Bem-vindo ao ARCOS-RJ! Digite '/sair' para encerrar.\n")
@@ -110,6 +103,5 @@ while True:
             print(f"🗑️ Erro na limpeza: {e}")
         
         break
-    except Exception:
-        import traceback
-        traceback.print_exc()
+    except Exception as e:
+        print(f"Erro: {e}")

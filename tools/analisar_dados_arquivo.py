@@ -1,6 +1,6 @@
 import os
 import traceback
-from typing import Any, Dict, List
+from typing import Any, Dict
 import pandas as pd
 from langchain.tools import tool
 
@@ -31,6 +31,7 @@ from .commons._operacoes_filtros import (
 from .commons._operacoes_concessionarias import (
     executar_leitura_tarifa, 
 )
+
 @tool("analisar_dados_arquivo")
 def analisar_dados_arquivo(params: dict) -> Any:
     """
@@ -89,15 +90,11 @@ def analisar_dados_arquivo(params: dict) -> Any:
                 "sucesso": False,
             }
         
-        # ============================================================
-        # ✨ ABSTRAÇÃO: USAR FUNÇÃO CENTRALIZADA
-        # ============================================================
-        print(f"\n🔍 Obtendo arquivos para análise...")
-        
+        print(f"\n🔍 Obtendo arquivos para análise...") 
         resultado_obtencao = obter_arquivos_para_analise(
             package_id=package_id,
             file_filter=file_filter,
-            força_download=False
+            force_download=False
         )
         
         if not resultado_obtencao.get("sucesso"):
@@ -111,10 +108,6 @@ def analisar_dados_arquivo(params: dict) -> Any:
         arquivos_para_analisar = resultado_obtencao.get("arquivos", [])
         print(f"✅ {len(arquivos_para_analisar)} arquivo(s) obtido(s)")
 
-        # ============================================================
-        # PROCESSAR ARQUIVOS (lógica original)
-        # ============================================================
-        
         print(f"\n{'='*80}")
         print(f"📊 PROCESSANDO {len(arquivos_para_analisar)} ARQUIVO(S)")
         print(f"{'='*80}")
@@ -197,11 +190,7 @@ def analisar_dados_arquivo(params: dict) -> Any:
                     print(f"\n📊 COMPARAR_POR_TURNO:")
                     print(f"   Filtro: {filter_column}='{filter_value}' (opcional)")
                     
-                    try:
-                        # ============================================================
-                        # PASSO 1: Preparar dados (converter datas e extrair horas)
-                        # ============================================================
-                        
+                    try:                      
                         if data_coluna not in df.columns:
                             resultados[nome] = {
                                 "erro": f"Coluna de data '{data_coluna}' não encontrada",
@@ -222,12 +211,7 @@ def analisar_dados_arquivo(params: dict) -> Any:
                         
                         print(f"✅ Datas e turnos processados")
                         
-                        # ============================================================
-                        # PASSO 2: Aplicar filtro OPCIONAL
-                        # ============================================================
-                        
-                        df_filtrado = df.copy()
-                        
+                        df_filtrado = df.copy() 
                         if filter_column and filter_value:
                             if filter_column not in df_filtrado.columns:
                                 resultados[nome] = {
@@ -251,13 +235,8 @@ def analisar_dados_arquivo(params: dict) -> Any:
                                 }
                                 print(f"❌ Nenhuma linha encontrada para filtro")
                                 continue
-                        
-                        # ============================================================
-                        # PASSO 3: Agregar por turno
-                        # ============================================================
-                        
+
                         dados_turno = []
-                        
                         for t in range(4):
                             count = len(df_filtrado[df_filtrado['_turno'] == t])
                             
@@ -281,13 +260,7 @@ def analisar_dados_arquivo(params: dict) -> Any:
                             }
                             print(f"❌ Sem dados para comparar")
                             continue
-                        
-                        # ============================================================
-                        # PASSO 4: Retornar resultado (SEM cache)
-                        # ============================================================
-                        
-                        df_turno = pd.DataFrame(dados_turno)
-                        
+      
                         print(f"\n✅ Comparação por turno gerada com sucesso")
                         print(f"   Total de transações: {len(df_filtrado)}")
                         print(f"   Turnos com dados: {len(dados_turno)}")
@@ -310,7 +283,7 @@ def analisar_dados_arquivo(params: dict) -> Any:
                             "sucesso": False,
                         }
 
-                elif operation == "leitura_tarifa":  # ✨ NOVO
+                elif operation == "leitura_tarifa":  
                     consulta_tipo = params.get("consulta_tipo", "atual")
                     ano = params.get("ano")
                     
@@ -357,17 +330,14 @@ def analisar_dados_arquivo(params: dict) -> Any:
                         continue
 
                     try:
-                        # Converter coluna para datetime
                         df[data_coluna] = pd.to_datetime(df[data_coluna], errors='coerce')
                         
-                        # Extrair hora e calcular faixa
                         df['_hora_extraida'] = df[data_coluna].dt.hour
                         df['_minuto_extraido'] = df[data_coluna].dt.minute
                         df['_faixa_horaria'] = df.apply(
                             lambda row: _determinar_faixa_horaria(row['_hora_extraida'], row['_minuto_extraido']),
                             axis=1
                         )
-                        # Filtrar pelo critério (ex: Idoso, Ônibus, etc)
                         df_filtrado = df[
                             df[filter_column].astype(str).str.contains(str(filter_value), case=False, na=False)
                         ]
@@ -382,7 +352,6 @@ def analisar_dados_arquivo(params: dict) -> Any:
                             }
                             print(f"❌ Nenhuma linha encontrada")
                         else:
-                            # Contar por turno
                             contagem_por_turno = {}
                             turno_com_mais = None
                             max_count = 0
@@ -398,7 +367,6 @@ def analisar_dados_arquivo(params: dict) -> Any:
                                         "porcentagem": round((count / total_linhas) * 100, 2)
                                     }
                                     
-                                    # Encontrar turno com mais transações
                                     if count > max_count:
                                         max_count = count
                                         turno_com_mais = info_turno['nome']
