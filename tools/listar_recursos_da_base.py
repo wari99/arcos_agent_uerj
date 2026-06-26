@@ -5,29 +5,9 @@ from typing import Any, List, Optional, Dict
 from collections import Counter
 from langchain.tools import tool
 from dotenv import load_dotenv
+from tools.commons.settings import LIMIARES_DETECCAO, REGEX_PATTERNS, REGEX_REPLACEMENTS
 
 load_dotenv()
-
-LIMIARES_DETECCAO = {
-    'prefixo_substring': 0.30,
-    'prefixo_separador': 0.15,
-    'min_frequencia': 1,
-    'min_sequencias': 2,
-}
-
-REGEX_PATTERNS = {
-    'ano': r'\b(19|20|21)\d{2}\b',
-    'mes': r'\b(0[1-9]|1[0-2])\b',
-    'dia': r'\b([0-2][0-9]|3[01])\b',
-    'numero': r'\b\d+\b'
-}
-
-REGEX_REPLACEMENTS = {
-    'ano': 'YYYY',
-    'mes': 'MM',
-    'dia': 'DD',
-    'numero': 'NUM'
-}
 
 # ================= TOOL FUNCTIONS
 
