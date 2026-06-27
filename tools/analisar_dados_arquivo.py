@@ -5,9 +5,9 @@ import pandas as pd
 from langchain.tools import tool
 
 from tools.commons.settings import FAIXAS_HORARIAS
-from tools.gerenciar_cache_sessao import obter_arquivos_para_analise  
+from tools.gerenciar_cache_sessao import obter_arquivos_para_analise
 
-from tools.baixar_arquivo_dados import (
+from tools.commons.utils import (
     obter_pasta_temporaria,
 )
 
@@ -31,7 +31,6 @@ from .commons._operacoes_filtros import (
 from .commons._operacoes_concessionarias import (
     executar_leitura_tarifa, 
 )
-
 @tool("analisar_dados_arquivo")
 def analisar_dados_arquivo(params: dict) -> Any:
     """
@@ -89,12 +88,11 @@ def analisar_dados_arquivo(params: dict) -> Any:
                 "erro": "Parâmetro 'package_id' é obrigatório.",
                 "sucesso": False,
             }
-        
-        print(f"\n🔍 Obtendo arquivos para análise...") 
+        print(f"\n🔍 Obtendo arquivos para análise...")  
         resultado_obtencao = obter_arquivos_para_analise(
             package_id=package_id,
             file_filter=file_filter,
-            force_download=False
+            força_download=False
         )
         
         if not resultado_obtencao.get("sucesso"):
@@ -106,8 +104,7 @@ def analisar_dados_arquivo(params: dict) -> Any:
             }
         
         arquivos_para_analisar = resultado_obtencao.get("arquivos", [])
-        print(f"✅ {len(arquivos_para_analisar)} arquivo(s) obtido(s)")
-
+        print(f"✅ {len(arquivos_para_analisar)} arquivo(s) obtido(s)")       
         print(f"\n{'='*80}")
         print(f"📊 PROCESSANDO {len(arquivos_para_analisar)} ARQUIVO(S)")
         print(f"{'='*80}")
@@ -190,7 +187,7 @@ def analisar_dados_arquivo(params: dict) -> Any:
                     print(f"\n📊 COMPARAR_POR_TURNO:")
                     print(f"   Filtro: {filter_column}='{filter_value}' (opcional)")
                     
-                    try:                      
+                    try:
                         if data_coluna not in df.columns:
                             resultados[nome] = {
                                 "erro": f"Coluna de data '{data_coluna}' não encontrada",
@@ -210,8 +207,7 @@ def analisar_dados_arquivo(params: dict) -> Any:
                         )
                         
                         print(f"✅ Datas e turnos processados")
-                        
-                        df_filtrado = df.copy() 
+                        df_filtrado = df.copy()                  
                         if filter_column and filter_value:
                             if filter_column not in df_filtrado.columns:
                                 resultados[nome] = {
@@ -260,7 +256,7 @@ def analisar_dados_arquivo(params: dict) -> Any:
                             }
                             print(f"❌ Sem dados para comparar")
                             continue
-      
+
                         print(f"\n✅ Comparação por turno gerada com sucesso")
                         print(f"   Total de transações: {len(df_filtrado)}")
                         print(f"   Turnos com dados: {len(dados_turno)}")
@@ -283,7 +279,7 @@ def analisar_dados_arquivo(params: dict) -> Any:
                             "sucesso": False,
                         }
 
-                elif operation == "leitura_tarifa":  
+                elif operation == "leitura_tarifa": 
                     consulta_tipo = params.get("consulta_tipo", "atual")
                     ano = params.get("ano")
                     

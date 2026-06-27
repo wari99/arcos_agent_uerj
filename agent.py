@@ -17,7 +17,8 @@ from tools.listar_bases import listar_bases
 from tools.buscar_infos_base import buscar_infos_base
 from tools.listar_recursos_da_base import listar_recursos_da_base
 from tools.baixar_arquivo_dados import baixar_arquivo_dados
-from tools.gerenciar_cache_sessao import gerenciar_cache_sessao, limpar_pasta_temporaria_manual
+from tools.gerenciar_cache_sessao import gerenciar_cache_sessao
+from tools.commons.utils import limpar_pasta_temporaria_manual
 from tools.analisar_dados_arquivo import analisar_dados_arquivo
 from tools.gerar_graficos import gerar_graficos  
 
@@ -76,13 +77,11 @@ while True:
         try:
             limpeza_result = limpar_pasta_temporaria_manual()  
             print("ARCOS-RJ:", limpeza_result.get('mensagem', 'Limpeza concluída!'))
-
         except ImportError as e:
             print(f"ARCOS-RJ: Erro no import da limpeza: {e}")
         except Exception as e:
             print(f"ARCOS-RJ: Erro na limpeza: {e}")
         break
-
     try:
         resultado = agent_memory.invoke(
             {"messages": [{"role": "user", "content": pergunta}]}, config={"thread_id": "1"}

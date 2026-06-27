@@ -1,7 +1,10 @@
+import os
+import shutil
 import io
+import tempfile
 import zipfile
 import pandas as pd
-from typing import Optional
+from typing import Optional, Dict
 
 from tools.commons.settings import (
     AMOSTRA_DETECCAO,
@@ -10,6 +13,77 @@ from tools.commons.settings import (
     SEPARADORES_CSV,
     ENCODINGS_SUPORTADOS,
 )
+
+# =============== GERENCIAMENTO CACHE
+
+class _EstadoCache:
+    """
+    Centraliza o estado que antes eram as variáveis globais
+    `_pasta_temporaria_global` e `_cache_arquivos`.
+    Como é um único objeto compartilhado, mutações são vistas por todos os módulos.
+    """
+    def __init__(self):
+        self.pasta_temporaria_global: Optional[str] = None
+        self.cache_arquivos: Dict[str, Dict] = {}
+
+_estado = _EstadoCache()
+
+def obter_pasta_temporaria() -> Optional[str]:
+    """Retorna o caminho da pasta temporária atual"""
+    return _estado.pasta_temporaria_global
+
+
+def obter_cache_arquivos() -> Dict:
+    """Retorna o cache de arquivos para outras tools"""
+    return _estado.cache_arquivos
+
+
+def listar_cache_arquivos() -> Dict:
+    """Lista arquivos atualmente no cache"""
+    arquivos_cache = []
+    total_mb = 0
+
+    for info in _estado.cache_arquivos.values():
+        if os.path.exists(info["arquivo_local"]):
+            arquivos_cache.append({
+                "nome": info["nome"],
+                "linhas": info["linhas"],
+                "colunas": info["colunas"],
+                "tamanho_mb": info["tamanho_mb"],
+                "tipo_arquivo": info.get("tipo_arquivo", "desconhecido"),
+                "arquivo_local": info["arquivo_local"]
+            })
+            total_mb += info["tamanho_mb"]
+
+    return {
+        "total_arquivos_cache": len(arquivos_cache),
+        "total_tamanho_mb": round(total_mb, 2),
+        "arquivos": arquivos_cache
+    }
+
+
+def limpar_pasta_temporaria_manual() -> Dict:
+    """Limpa pasta temporária e cache"""
+    print(f"🔍 DEBUG: _pasta_temporaria_global = {_estado.pasta_temporaria_global}")
+    print(f"🔍 DEBUG: Existe? {os.path.exists(_estado.pasta_temporaria_global) if _estado.pasta_temporaria_global else False}")
+
+    if not (_estado.pasta_temporaria_global and os.path.exists(_estado.pasta_temporaria_global)):
+        print("📭 Sem pasta para limpar")
+        return {"status": "info", "mensagem": "Nenhuma pasta temporária para remover"}
+
+    try:
+        print(f"🗑️ Removendo: {_estado.pasta_temporaria_global}")
+        shutil.rmtree(_estado.pasta_temporaria_global)
+        print(f"✅ Pasta removida: {_estado.pasta_temporaria_global}")
+
+        _estado.pasta_temporaria_global = None
+        _estado.cache_arquivos.clear()
+        print("🧹 Cache limpo")
+
+        return {"status": "sucesso", "mensagem": "Pasta e cache removidos"}
+    except Exception as e:
+        print(f"❌ Erro: {e}")
+        return {"status": "erro", "mensagem": f"Erro ao remover: {e}"}
 
 # =============== FUNCOES INTERNAS - ENCODING
 

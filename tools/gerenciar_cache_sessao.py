@@ -3,50 +3,14 @@ import shutil
 from typing import Any, Dict, List
 from langchain.tools import tool
 
-from tools.baixar_arquivo_dados import obter_pasta_temporaria, obter_cache_arquivos, baixar_arquivo_dados
 import traceback
 
-def limpar_pasta_temporaria_manual() -> Dict:
-    """
-    Limpa pasta temporária e cache. Remove a pasta temporária que foi criada durante a sessão e limpa o dicionário em cache. 
-
-    Returns:
-        Dict com as chaves:
-        - status (str): "sucesso", "info" ou "erro"
-        - mensagem (str): Descrição do resultado da operação
-
-    """
-    from tools.baixar_arquivo_dados import _pasta_temporaria_global, _cache_arquivos #vars globais
-    
-    print(f" DEBUG: _pasta_temporaria_global = {_pasta_temporaria_global}")
-    print(f" DEBUG: Existe? {os.path.exists(_pasta_temporaria_global) if _pasta_temporaria_global else False}")
-    
-    if not (_pasta_temporaria_global and os.path.exists(_pasta_temporaria_global)):
-        print(" Sem pasta para limpar")
-        return {
-            "status": "info", 
-            "mensagem": "Nenhuma pasta temporária para remover"
-        }
-    
-    try:
-        print(f"🗑️ Removendo: {_pasta_temporaria_global}")
-        shutil.rmtree(_pasta_temporaria_global)
-        print(f"✅ Pasta removida: {_pasta_temporaria_global}")
-        
-        _pasta_temporaria_global = None
-        _cache_arquivos.clear()
-        print("🧹 Cache limpo")
-        
-        return {
-            "status": "sucesso", 
-            "mensagem": "Pasta e cache removidos"
-        }
-    except Exception as e:
-        print(f"❌ Erro: {e}")
-        return {
-            "status": "erro", 
-            "mensagem": f"Erro ao remover: {e}"
-        }
+from tools.baixar_arquivo_dados import baixar_arquivo_dados
+from tools.commons.utils import (
+    obter_pasta_temporaria,
+    obter_cache_arquivos,
+    limpar_pasta_temporaria_manual,
+)
 
 def obter_arquivos_para_analise(
     package_id: str,
@@ -54,22 +18,21 @@ def obter_arquivos_para_analise(
     força_download: bool = False
 ) -> Dict[str, Any]:
     """
-    Obtém arquivos prontos para análise.
+    ✨ ABSTRAÇÃO - Obtém arquivos prontos para análise.
     
-    Centraliza toda a lógica de obtenção dos dados:
-    - Tenta obter um arquivo o cache local
-    - Se não encontra o arquivo, baixa-o através do endpoint da API de Dados Abertos
-    - Valida e retorna os arquivos prontos para uso
+    Centraliza toda a lógica de:
+    - Verificar cache
+    - Baixar se necessário
+    - Validar arquivos
     
     Args:
-        package_id (str): ID do package na API
-        file_filter (str): Filtro para selecionar apenas arquivos que contenham determinado texto no nome. Case-insensitive 
-        força_download (bool, Optional): Se for True, ignora o cache e força um novo download duplicado. 
-                                        O default de força_download é False.
+        package_id: ID da base
+        file_filter: Filtro de nome de arquivo
+        força_download: Se True, ignora cache e baixa novamente
     
     Returns:
         {
-            "arquivos": [{"nome": "...", "df": ..., "arquivo_local": "...", "do_cache": bool}],
+            "arquivos": [{"nome": "...", "df": ..., "arquivo_local": "..."}],
             "total_arquivos": int,
             "do_cache": bool,
             "erro": str (se houver),
@@ -78,13 +41,17 @@ def obter_arquivos_para_analise(
     """
     
     try:
-        print(f"\n* OBTER_ARQUIVOS_PARA_ANALISE:")
+        
+        print(f"\n🔄 OBTER_ARQUIVOS_PARA_ANALISE:")
         print(f"   Package ID: {package_id}")
         print(f"   Filtro: {file_filter if file_filter else '(nenhum)'}")
         print(f"   Força download: {força_download}")
         
         arquivos_para_analisar: List[Dict] = []
         
+        # ============================================================
+        # PASSO 1: Tentar obter do cache (exceto se força_download)
+        # ============================================================
         if not força_download:
             print(f"\n   📦 Procurando no cache...")
             
@@ -95,9 +62,11 @@ def obter_arquivos_para_analise(
                 for info_cache in cache_arquivos.values():
                     nome_arquivo = info_cache.get("nome", "")
                     
+                    # Aplicar filtro
                     if file_filter and file_filter.lower() not in nome_arquivo.lower():
                         continue
                     
+                    # Validar arquivo local
                     if os.path.exists(info_cache["arquivo_local"]):
                         arquivos_para_analisar.append({
                             "nome": nome_arquivo,
@@ -125,7 +94,7 @@ def obter_arquivos_para_analise(
 
         print(f"\n   📥 Baixando arquivo(s)...")
         try:
-            resultado_download = baixar_arquivo_dados.func({
+            resultado_download = baixar_arquivo_dados({
                 "package_id": package_id,
                 "file_filter": file_filter,
             })
@@ -154,7 +123,7 @@ def obter_arquivos_para_analise(
             }
         
 
-        print(f"\n    Atualizando cache...") 
+        print(f"\n   📦 Atualizando cache...")
         try:
             cache_arquivos = obter_cache_arquivos()
             print(f"   ✅ Cache atualizado: {len(cache_arquivos)} arquivos")
@@ -185,7 +154,6 @@ def obter_arquivos_para_analise(
                 "sucesso": False,
                 "traceback": traceback.format_exc()
             }
-
         if not arquivos_para_analisar:
             print(f"   ❌ Nenhum arquivo disponível após download")
             return {
@@ -199,7 +167,7 @@ def obter_arquivos_para_analise(
         return {
             "arquivos": arquivos_para_analisar,
             "total_arquivos": len(arquivos_para_analisar),
-            "do_cache": False, 
+            "do_cache": False,  # Acabou de baixar
             "sucesso": True
         }
         
@@ -212,38 +180,17 @@ def obter_arquivos_para_analise(
             "sucesso": False
         }
 
-
 @tool("gerenciar_cache_sessao")
 def gerenciar_cache_sessao(params: dict) -> Any:
     """
-    Gerencia os arquivos baixados na pasta temporária da sessão.
-
-    Oferece ações para listar, verificar, limpar e remover arquivos da pasta temporária da sessão;
-
-    Args:
-        params (dict): Dicionário com parâmetros da ação:
-            Sempre obrigatório:
-                - acao (str): Tipo de operação a realizar
-            
-            Ações disponíveis:
-                "listar": Lista todos os arquivos da pasta temporária.
-                    Retorna: lista de arquivos com nome, tamanho e caminho
-
-                "info": Obtém informações resumidas do cache.
-                    Retorna: total de arquivos e tamanho total em MB
-                
-                "limpar": Remove completamente a pasta temporária e cache.
-                
-                "remover_arquivo": Remove um arquivo específico do cache.
-                    Parâmetro: arquivo (str) - nome do arquivo
-                
-                "obter_para_analise": Através de parametros passados, valida e chama a função obter_arquivos_para_analise().
-                                    Procura em cache o arquivo desejado, baixa do servidor caso não encontre. Valida download
-                                    e valida o cache atual, retornando o resultado.
-                    Parâmetros:
-                        - package_id (str, obrigatório): ID da base
-                        - file_filter (str, opcional): Filtro de nome
-                        - força_download (bool, opcional): Força novo download
+    Gerencia arquivos baixados na pasta temporária da sessão.
+    
+    Parâmetros esperados em *params*:
+    - acao (str): listar | limpar | info | remover_arquivo | obter_para_analise
+    - arquivo (str): nome do arquivo específico (para acao=remover_arquivo)
+    - package_id (str): para acao=obter_para_analise
+    - file_filter (str): para acao=obter_para_analise
+    - força_download (bool): para acao=obter_para_analise
     """
     
     try:

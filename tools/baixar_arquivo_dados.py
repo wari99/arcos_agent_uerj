@@ -3,11 +3,11 @@ import io
 import tempfile
 import requests
 import pandas as pd
-import shutil
 import hashlib
 from typing import Any, Dict, Optional
 from langchain.tools import tool
 import re 
+from dotenv import load_dotenv
 
 from tools.commons.settings import (
     TIMEOUT_REQUISICAO,
@@ -18,10 +18,10 @@ from tools.commons.utils import (
     _processar_xlsx,
     _processar_csv,
     _processar_zip,
+    _estado
 )
 
-_pasta_temporaria_global = None
-_cache_arquivos: Dict[str, Dict] = {}
+load_dotenv()
 
 # =============== TOOL FUNCTIONS
 
@@ -38,7 +38,8 @@ def baixar_arquivo_dados(params: dict) -> Any:
         
         print(f"🔍 Base: '{package_id}' | Filtro: '{file_filter}'")
         
-        url = f"https://dadosabertos.rj.gov.br/api/3/action/package_show?id={package_id}"
+        url = os.getenv("URL_CONSULTAR_PROCESSAR_ARQUIVO").format(package_id)
+
         try:
             resp = requests.get(url, timeout=TIMEOUT_REQUISICAO)
             resp.raise_for_status()
@@ -55,7 +56,7 @@ def baixar_arquivo_dados(params: dict) -> Any:
             return _criar_resposta_erro("Nenhum recurso encontrado")
         
         if file_filter:
-            resources = _filtrar_recursos_inteligentemente(resources, file_filter)
+            resources = _filtro_deteccao_padrao_estrutural(resources, file_filter)
         
         if not resources:
             return _criar_resposta_erro(f"Nenhum arquivo com filtro: '{file_filter}'")
@@ -111,78 +112,11 @@ def baixar_arquivo_dados(params: dict) -> Any:
     except Exception as e:
         return _criar_resposta_erro(f"Erro geral: {e}")
 
-# =============== FUNCOES PUBLICAS
-
-def obter_pasta_temporaria() -> Optional[str]:
-    """Retorna o caminho da pasta temporária atual"""
-    return _pasta_temporaria_global
-
-def obter_cache_arquivos() -> Dict:
-    """Retorna o cache de arquivos para outras tools"""
-    return _cache_arquivos
-
-def listar_cache_arquivos() -> Dict:
-    """Lista arquivos atualmente no cache"""
-    arquivos_cache = []
-    total_mb = 0
-    
-    for info in _cache_arquivos.values():
-        if os.path.exists(info["arquivo_local"]):
-            arquivos_cache.append({
-                "nome": info["nome"],
-                "linhas": info["linhas"],
-                "colunas": info["colunas"],
-                "tamanho_mb": info["tamanho_mb"],
-                "tipo_arquivo": info.get("tipo_arquivo", "desconhecido"),
-                "arquivo_local": info["arquivo_local"]
-            })
-            total_mb += info["tamanho_mb"]
-    
-    return {
-        "total_arquivos_cache": len(arquivos_cache),
-        "total_tamanho_mb": round(total_mb, 2),
-        "arquivos": arquivos_cache
-    }
-
-def limpar_pasta_temporaria_manual() -> Dict:
-    """Limpa pasta temporária e cache"""
-    global _pasta_temporaria_global, _cache_arquivos
-    
-    print(f"🔍 DEBUG: _pasta_temporaria_global = {_pasta_temporaria_global}")
-    print(f"🔍 DEBUG: Existe? {os.path.exists(_pasta_temporaria_global) if _pasta_temporaria_global else False}")
-    
-    if not (_pasta_temporaria_global and os.path.exists(_pasta_temporaria_global)):
-        print("📭 Sem pasta para limpar")
-        return {
-            "status": "info", 
-            "mensagem": "Nenhuma pasta temporária para remover"
-        }
-    
-    try:
-        print(f"🗑️ Removendo: {_pasta_temporaria_global}")
-        shutil.rmtree(_pasta_temporaria_global)
-        print(f"✅ Pasta removida: {_pasta_temporaria_global}")
-        
-        _pasta_temporaria_global = None
-        _cache_arquivos.clear()
-        print("🧹 Cache limpo")
-        
-        return {
-            "status": "sucesso", 
-            "mensagem": "Pasta e cache removidos"
-        }
-    except Exception as e:
-        print(f"❌ Erro: {e}")
-        return {
-            "status": "erro", 
-            "mensagem": f"Erro ao remover: {e}"
-        }
-    
 # =============== FUNCOES INTERNAS DETECTAR TIPO
 
 def _detectar_tipo_arquivo(nome: str, mimetype: str) -> str:
     """
-    ✅ CORRIGIDO - Detecta tipo de arquivo com prioridade correta
+    Detecta tipo de arquivo com prioridade correta
     """
     nome_lower = nome.lower()
     mime_lower = (mimetype or "").lower()
@@ -228,13 +162,12 @@ def _detectar_tipo_arquivo(nome: str, mimetype: str) -> str:
 
 def _criar_pasta_temporaria() -> str:
     """Cria ou retorna pasta temporária existente"""
-    global _pasta_temporaria_global
-    
-    if _pasta_temporaria_global is None or not os.path.exists(_pasta_temporaria_global):
-        _pasta_temporaria_global = tempfile.mkdtemp(prefix="arcos_rj_")
-        print(f"📂 Pasta criada: {_pasta_temporaria_global}")
-    
-    return _pasta_temporaria_global
+    if _estado.pasta_temporaria_global is None or not os.path.exists(_estado.pasta_temporaria_global):
+        _estado.pasta_temporaria_global = tempfile.mkdtemp(prefix="arcos_rj_")
+
+        print(f"📂 Pasta criada: {_estado.pasta_temporaria_global}")
+
+    return _estado.pasta_temporaria_global
 
 def _gerar_chave_cache(url: str, nome: str) -> str:
     """Gera chave única para cache"""
@@ -243,21 +176,21 @@ def _gerar_chave_cache(url: str, nome: str) -> str:
 
 def _arquivo_existe_no_cache(chave: str) -> Optional[Dict]:
     """Verifica se arquivo já foi baixado e ainda existe"""
-    if chave not in _cache_arquivos:
+    if chave not in _estado.cache_arquivos:
         return None
-    
-    info = _cache_arquivos[chave]
-    
+
+    info = _estado.cache_arquivos[chave]
+
     if not os.path.exists(info.get("arquivo_local", "")):
-        del _cache_arquivos[chave]
+        del _estado.cache_arquivos[chave]
         return None
-    
+
     print(f"♻️ Cache: {info['nome']}")
     return info
 
 def _salvar_cache(chave: str, info: Dict) -> None:
     """Salva arquivo no cache"""
-    _cache_arquivos[chave] = info
+    _estado.cache_arquivos[chave] = info
     print(f"💾 Cache: {info['nome']}")
 
 def _validar_dataframe(df: Optional[pd.DataFrame]) -> bool:
@@ -375,7 +308,7 @@ def _baixar_e_processar_arquivo(resource: Dict, pasta_temp: str) -> Dict:
     }
 
 
-def _filtrar_recursos_inteligentemente(recursos: list, file_filter: str) -> list:
+def _filtro_deteccao_padrao_estrutural(recursos: list, file_filter: str) -> list:
     """
     Filtra recursos por detecção de padrão estrutural.
     
