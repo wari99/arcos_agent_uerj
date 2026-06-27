@@ -3,6 +3,7 @@ import shutil
 import io
 import tempfile
 import zipfile
+import re
 import pandas as pd
 from typing import Optional, Dict
 
@@ -12,6 +13,7 @@ from tools.commons.settings import (
     ENCODING_PADRAO,
     SEPARADORES_CSV,
     ENCODINGS_SUPORTADOS,
+    REGEX_PATTERNS,
 )
 
 # =============== GERENCIAMENTO CACHE
@@ -84,6 +86,62 @@ def limpar_pasta_temporaria_manual() -> Dict:
     except Exception as e:
         print(f"❌ Erro: {e}")
         return {"status": "erro", "mensagem": f"Erro ao remover: {e}"}
+
+# =============== GERENCIAMENTO CACHE
+
+def filtro_deteccao_padrao_estrutural(recursos: list, file_filter: str) -> list:
+    """
+    Filtra recursos por detecção de padrão estrutural.
+    
+    - YYYY_MM (sem dia) → prioriza arquivos que NÃO têm YYYY_MM_DD no nome
+    - YYYY_MM_DD (com dia) → busca apenas arquivos com aquele dia
+    - Outros → busca genérica (contains)
+    """
+    if not file_filter or not file_filter.strip():
+        return recursos
+    
+    filtro_lower = file_filter.lower().strip()
+    match_data = re.search(REGEX_PATTERNS['data_filtro'], filtro_lower)
+    
+    # REGRA 1: Data completa YYYY_MM_DD → arquivo daquele dia 
+    if match_data and match_data.group(4):
+        data_str = f"{match_data.group(1)}_{match_data.group(2)}_{match_data.group(4)}"
+        resultado = [
+            r for r in recursos
+            if data_str in r.get("name", "")
+        ]
+        print(f"   🎯 Padrão: dia {data_str} → {len(resultado)} arquivo(s)")
+        return resultado
+    
+    # REGRA 2: Apenas mês YYYY_MM -> prioriza arquivos SEM dia no nome 
+    if match_data and not match_data.group(4):
+        data_str = f"{match_data.group(1)}_{match_data.group(2)}"
+        
+        # Separar: arquivos que TÊM o mês mas NÃO têm dia (padrão mensal/consolidado)
+        mensais = [
+            r for r in recursos
+            if data_str in r.get("name", "")
+            and not re.search(REGEX_PATTERNS['data_completa_nome'], r.get("name", ""))
+        ]
+        
+        # Arquivos que TÊM o mês E têm dia (padrão diário)
+        diarios = [
+            r for r in recursos
+            if data_str in r.get("name", "")
+            and re.search(REGEX_PATTERNS['data_completa_nome'], r.get("name", ""))
+        ]
+        
+        if mensais:
+            print(f"   🎯 Padrão: mês {data_str} → {len(mensais)} arquivo(s) mensal(is)")
+            return mensais
+        
+        print(f"   ⚠️ Padrão: mês {data_str} → sem mensal, usando {len(diarios)} diário(s)")
+        return diarios
+    
+    # REGRA 3: Busca genérica 
+    resultado = [r for r in recursos if filtro_lower in r.get("name", "").lower()]
+    print(f"   🔍 Filtro genérico '{filtro_lower}' → {len(resultado)} arquivo(s)")
+    return resultado
 
 # =============== FUNCOES INTERNAS - ENCODING
 
