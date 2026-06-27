@@ -113,32 +113,9 @@ Dessa forma, tanto um usuário leigo quanto um usuário mais experiente e conhec
 
 ---
 
-## 🏗️ Arquitetura (Work In Progress)
+## 🏗️ Arquitetura (WIP: biblioteca Diagrams)
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    ARCOS-RJ Agent                           │
-│              (LangChain/Framework + Gemini/LLM)             │
-└─────────────────────────────────────────────────────────────┘
-                              ↓
-         ┌────────────────────────────────────────┐
-         │      Ferramentas do Agente             │
-         │  (listar, buscar, baixar, analisar)    │
-         └────────────────────────────────────────┘
-                              ↓
-         ┌────────────────────────────────────────┐
-         │  Dados Abertos RJ - API REST           │
-         │  https://dadosabertos.rj.gov.br/api    │
-         └────────────────────────────────────────┘
-                              ↓
-         ┌────────────────────────────────────────┐
-         │      Bases de Dados Públicas           │
-         │  • SETRAM_SGR (Gratuidades)            │
-         │  • Concessionárias (Tarifas)           │
-         │  • SETRAM_SBE (Bilhetagem)             │
-         │  • ... Demais bases presentes no portal│
-         └────────────────────────────────────────┘
-```
+![Arquitetura](./diagrams/imgs/architecture.png)
 
 ---
 
@@ -239,7 +216,7 @@ URL_CONSULTAR_PROCESSAR_ARQUIVO=https://dadosabertos.rj.gov.br/api/3/action/pack
 Este projeto está sob orientação de:
 
 - **Prof. Dra. Karla Figueiredo** (Orientadora)
-- **Prof. Dr. Fabio Cardoso** (Co-orientador)
+- **Me. Fabio Cardoso** (Co-orientador)
 
 **Departamento de Ciência da Computação**  
 **Instituto de Matemática e Estatística (IME)**  
