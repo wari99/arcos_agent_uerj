@@ -121,16 +121,20 @@ Dessa forma, tanto um usuário leigo quanto um usuário mais experiente e conhec
 
 ## Como Usar
 
+> [!IMPORTANT]  
+> O agente foi desenvolvido em ambiente MacOS. Portanto, algumas ferramentas do projeto podem depender de compatibilidade com Unix.
+> No Windows, o uso do *make* pelo PowerShell pode apresentar problemas nas configurações de Path. Dê preferência para o WSL para utilizar os comandos abaixo.
+
 ### Instalação
 
 ```bash
-[Work In Progress]
+make create-env
 ```
 
 ### Executar o Agente
 
 ```bash
-[Work In Progress]
+make run
 ```
 
 ---
