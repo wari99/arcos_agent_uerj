@@ -8,7 +8,7 @@ from langchain.tools import tool
 
 matplotlib.use('Agg')
 
-from tools.baixar_arquivo_dados import (
+from tools.commons.utils import (
     obter_cache_arquivos,
     obter_pasta_temporaria,
 )
