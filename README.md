@@ -125,10 +125,14 @@ Dessa forma, tanto um usuário leigo quanto um usuário mais experiente e conhec
 > O agente foi desenvolvido em ambiente MacOS. Portanto, algumas ferramentas do projeto podem depender de compatibilidade com Unix.
 > No Windows, o uso do *make* pelo PowerShell pode apresentar problemas nas configurações de Path. Dê preferência para o WSL para utilizar os comandos abaixo.
 
-### Instalação
+### Criar ambiente virtual e ativação do ambiente
 
 ```bash
 make create-env
+```
+
+```bash
+source .venv/bin/activate
 ```
 
 ### Executar o Agente
