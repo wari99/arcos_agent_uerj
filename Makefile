@@ -29,3 +29,6 @@ delete-env:
 	else \
 		echo "Virtual environment not found."; \
 	fi
+
+run:
+	@python3 agent.py
