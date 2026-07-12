@@ -1,4 +1,4 @@
-.PHONY: help create-env delete-env
+.PHONY: help create-env delete-env run
 
 PYTHON_VERSION := 3.12.10
 
@@ -8,6 +8,9 @@ help:
 	@echo "Environment Management:"
 	@echo "  create-env          Create Python virtual environment"
 	@echo "  delete-env          Delete Python virtual environment"
+	@echo ""
+	@echo "Running:"
+	@echo "  run                 Run the agent (python3 agent.py)"
 	@echo ""
 
 create-env:
