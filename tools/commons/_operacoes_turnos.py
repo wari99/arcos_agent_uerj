@@ -47,10 +47,10 @@ def _determinar_faixa_horaria(hora: int, minuto: int = 0) -> int:
 def executar_filtrar_por_turno(
     df: pd.DataFrame,
     turno: str,
-    filter_column: str,
-    filter_value: str,
     data_coluna: str,
-    arquivo_local: str
+    arquivo_local: str,
+    filter_column: str = "None",
+    filter_value: str = "None",    
 ) -> Dict[str, Any]:
     """
     Filtra transações por turno específico (ou todos) com filtro opcional.

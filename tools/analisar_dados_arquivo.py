@@ -159,10 +159,10 @@ def analisar_dados_arquivo(params: dict) -> Any:
                     resultados[nome] = executar_filtrar_por_turno(
                         df=df,
                         turno=turno,
+                        data_coluna=data_coluna,
+                        arquivo_local=arquivo_info["arquivo_local"],
                         filter_column=filter_column,
                         filter_value=filter_value,
-                        data_coluna=data_coluna,
-                        arquivo_local=arquivo_info["arquivo_local"]
                     )
 
                 elif operation == "comparar_por_turno":
