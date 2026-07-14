@@ -11,7 +11,10 @@ from langchain.agents import create_agent, AgentState
 from langgraph.graph import StateGraph
 from langgraph.checkpoint.memory import InMemorySaver
 
-from prompt import prompt
+from db.sessions import get_session_manager
+from langchain_core.messages import HumanMessage, AIMessage
+
+from prompts.prompt import prompt
 
 from tools.listar_bases import listar_bases
 from tools.buscar_infos_base import buscar_infos_base
@@ -27,6 +30,10 @@ load_dotenv()
 @dataclass
 class Context:
     user_id: str
+
+session_manager = get_session_manager()
+chat_history = session_manager.get_history("arcos_user_default")
+
 
 model = ChatVertexAI(
     model_name=os.getenv("ROOT_AGENT_MODEL"),  
@@ -82,18 +89,29 @@ while True:
         except Exception as e:
             print(f"ARCOS-RJ: Erro na limpeza: {e}")
         break
+    
     try:
+        chat_history.add_user_message(pergunta)
+        
+        messages = list(chat_history.messages)
+        messages.append(HumanMessage(content=pergunta))
+        
         resultado = agent_memory.invoke(
-            {"messages": [{"role": "user", "content": pergunta}]}, config={"thread_id": "1"}
+            {
+                "messages": messages
+            },
+            config={"thread_id": "1"}
         )
 
-        mensagens = resultado["messages"][-1].content
-
-        if isinstance(mensagens, list) and len(mensagens) > 0 and "text" in mensagens[0]:
-            resposta = mensagens[0]["text"]
+        resposta = resultado["messages"][-1].content
+        
+        if isinstance(resposta, list) and len(resposta) > 0 and "text" in resposta[0]:
+            resposta = resposta[0]["text"]
         else:
-            resposta = str(mensagens)
+            resposta = str(resposta)
 
+        chat_history.add_ai_message(resposta)
+        
         print("💬💬💬 ARCOS-RJ:", resposta)
         
     except KeyboardInterrupt:
