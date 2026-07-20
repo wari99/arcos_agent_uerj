@@ -1,0 +1,23 @@
+# macOS
+.DS_Store
+__MACOSX/
+
+# Python
+.Python
+__pycache__/
+*.py[cod]
+
+# Ambiente virtual
+ambiente/
+venv/
+.venv/
+venv
+.venv
+ENV/
+
+# Variáveis de ambiente
+.env
+
+# SQLite
+*.sqlite3
+*.db
