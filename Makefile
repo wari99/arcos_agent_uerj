@@ -1,6 +1,6 @@
-.PHONY: help create-env delete-env run chat-history chat-history-pretty
+.PHONY: help create-env delete-env run web chat-history chat-history-pretty
 
-PYTHON_VERSION := 3.12.10
+PYTHON_VERSION := 3.13.12
 
 help:
 	@echo "ARCOS Agent UERJ Makefile Commands:"
@@ -11,8 +11,8 @@ help:
 	@echo ""
 	@echo "Running:"
 	@echo "  run                     Run the agent (cmd)"
+	@echo "  web                     Run Streamlit web interface"
 	@echo ""
-
 
 create-env:
 	@echo "Creating virtual environment with Python ${PYTHON_VERSION}..."
@@ -35,4 +35,11 @@ delete-env:
 	fi
 
 run:
+	@echo "Waking up ARCOS Agent..."
 	@python3 agent.py
+
+web:
+	@echo "Starting Streamlit server..."
+	@echo "Streamlit will display its local URL below:"
+	@streamlit run app_streamlit.py
+	
