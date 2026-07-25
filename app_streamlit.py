@@ -1,22 +1,22 @@
 import streamlit as st
 import os
 import sys
+import re
 from datetime import datetime
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from agent import agent_memory
+from tools.commons.utils import limpar_pasta_temporaria_manual
 
 
 st.set_page_config(
-    page_title="ARCOS Agent",
+    page_title="ARCOS-RJ Chat",
     page_icon="random", # streamlit-emoji-shortcodes-streamlit-app-gwckff.streamlit.app
     layout="wide",
-    #menu_items={}
 )
 
-
-st.markdown("""
+css_style = """
 <style>
 html, body, [class*="css"]  {
     background-color: #0E1117 !important;
@@ -36,7 +36,9 @@ html, body, [class*="css"]  {
 .agent-msg { border-left: 4px solid #81C784; }
 .error-msg { border-left: 4px solid #E57373; }
 </style>
-""", unsafe_allow_html=True)
+"""
+
+st.markdown(css_style, unsafe_allow_html=True)
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -47,7 +49,10 @@ if "thread_id" not in st.session_state:
 if "pending_user_input" not in st.session_state:
     st.session_state.pending_user_input = None
 
-st.title("ARCOS-RJ")
+if "session_active" not in st.session_state:
+    st.session_state.session_active = True
+
+st.title("ARCOS-RJ Chat")
 
 for msg in st.session_state.messages:
     if msg["role"] == "user":
@@ -61,6 +66,7 @@ for msg in st.session_state.messages:
             f"<div class='chat-message agent-msg'><b>ARCOS:</b><br>{msg['content']}</div>",
             unsafe_allow_html=True
         )
+
         if "grafico" in msg and msg["grafico"]:
             if os.path.exists(msg["grafico"]):
                 st.image(msg["grafico"], use_container_width=True)
@@ -71,21 +77,72 @@ for msg in st.session_state.messages:
             unsafe_allow_html=True
         )
 
+if not st.session_state.session_active:
+    st.info("Sessão encerrada. Digitar '/reiniciar' para começar uma nova sessão.")
+
 with st.form("chat_form", clear_on_submit=True):
-    user_input = st.text_input("Digite...", label_visibility="collapsed")
+    user_input = st.text_input(
+        "Digite...",
+        label_visibility="collapsed",
+        disabled=not st.session_state.session_active
+    )
     submitted = st.form_submit_button("Enviar")
 
 if submitted and user_input:
-    timestamp = datetime.now().strftime("%H:%M:%S")
+    if user_input.strip().lower() == "/sair":
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        
+        st.session_state.messages.append({
+            "role": "user",
+            "content": user_input,
+            "timestamp": timestamp
+        })
+        
+        st.session_state.messages.append({
+            "role": "assistant",
+            "content": "Até logo! 👋 Limpando arquivos temporários...",
+            "timestamp": timestamp,
+            "grafico": None
+        })
+        
+        try:
+            resultado_limpeza = limpar_pasta_temporaria_manual()
+            mensagem_limpeza = resultado_limpeza.get('mensagem', 'Limpeza concluída!')
+            cleanup_msg = f"✅ {mensagem_limpeza}"
+            st.session_state.messages.append({
+                "role": "assistant",
+                "content": cleanup_msg,
+                "timestamp": datetime.now().strftime("%H:%M:%S"),
+                "grafico": None
+            })
+        except Exception as e:
+            cleanup_error_msg = f"Erro na limpeza: {str(e)}"
+            st.session_state.messages.append({
+                "role": "error",
+                "content": cleanup_error_msg,
+                "timestamp": datetime.now().strftime("%H:%M:%S")
+            })
+        
+        st.session_state.session_active = False
+        st.rerun()
+    
+    elif user_input.strip().lower() == "/reiniciar":
+        st.session_state.messages = []
+        st.session_state.thread_id = f"streamlit-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        st.session_state.session_active = True
+        st.rerun()
+    
+    elif st.session_state.session_active:
+        timestamp = datetime.now().strftime("%H:%M:%S")
 
-    st.session_state.messages.append({
-        "role": "user",
-        "content": user_input,
-        "timestamp": timestamp
-    })
+        st.session_state.messages.append({
+            "role": "user",
+            "content": user_input,
+            "timestamp": timestamp
+        })
 
-    st.session_state.pending_user_input = user_input
-    st.rerun()
+        st.session_state.pending_user_input = user_input
+        st.rerun()
 
 if st.session_state.pending_user_input:
     user_input = st.session_state.pending_user_input
@@ -103,11 +160,17 @@ if st.session_state.pending_user_input:
             resposta = str(resultado["messages"][-1].content)
 
             grafico_path = None
-            if ".png" in resposta:
-                palavras = resposta.split()
-                for palavra in palavras:
-                    if palavra.endswith(".png") and os.path.exists(palavra):
-                        grafico_path = palavra
+            
+            matches = re.findall(r'[/\w\-._]+\.png', resposta)
+            
+            if matches:
+                for match in matches:
+                    if os.path.exists(match):
+                        grafico_path = match
+                        break
+
+                    elif os.path.exists(os.path.join(os.getcwd(), match)):
+                        grafico_path = os.path.join(os.getcwd(), match)
                         break
 
             st.session_state.messages.append({
