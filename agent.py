@@ -1,21 +1,17 @@
 import os
-import requests
-import tempfile
+from pathlib import Path
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
 from dotenv import load_dotenv
 
 from langchain_google_vertexai import ChatVertexAI
-from langchain.tools import tool
 from langchain.agents import create_agent, AgentState
 from langgraph.graph import StateGraph
 from langgraph.checkpoint.memory import InMemorySaver
 
 from db.sessions import get_session_manager
-from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.messages import HumanMessage
 
-from prompts.prompt import prompt
-
+from prompts.commons.utils import load_prompt_from_markdown
 from tools.listar_bases import listar_bases
 from tools.buscar_infos_base import buscar_infos_base
 from tools.listar_recursos_da_base import listar_recursos_da_base
@@ -23,16 +19,19 @@ from tools.baixar_arquivo_dados import baixar_arquivo_dados
 from tools.gerenciar_cache_sessao import gerenciar_cache_sessao
 from tools.commons.utils import limpar_pasta_temporaria_manual
 from tools.analisar_dados_arquivo import analisar_dados_arquivo
-from tools.gerar_graficos import gerar_graficos  
+from tools.gerar_graficos import gerar_graficos
 
 load_dotenv()
+
+PROMPTS_DIR = Path(__file__).parent / "prompts"
+ROOT_PROMPT = load_prompt_from_markdown(str(PROMPTS_DIR))
 
 @dataclass
 class Context:
     user_id: str
 
 session_manager = get_session_manager()
-chat_history = session_manager.get_history("arcos_user_default")
+SESSION_ID = "arcos_user_default"
 
 
 model = ChatVertexAI(
@@ -45,7 +44,7 @@ model = ChatVertexAI(
 agent = create_agent(
     model=model,
     context_schema=Context,
-    system_prompt=prompt, 
+    system_prompt=ROOT_PROMPT,
     tools=[
         listar_bases,           
         buscar_infos_base,      
@@ -75,6 +74,8 @@ agent_memory = graph.compile(checkpointer=checkpointer)
 
 print("💬💬💬 Bem-vindo ao ARCOS-RJ! Digite '/sair' para encerrar.\n")
 
+messages_session = []
+
 while True:
     pergunta = input("🟡🟡🟡 Você: ").strip()
 
@@ -88,17 +89,21 @@ while True:
             print(f"ARCOS-RJ: Erro no import da limpeza: {e}")
         except Exception as e:
             print(f"ARCOS-RJ: Erro na limpeza: {e}")
+        
+        try:
+            session_manager.export_session_by_id(SESSION_ID)
+            print("💾 Sessão exportada com sucesso!")
+        except Exception as e:
+            print(f"❌ Erro ao exportar sessão: {e}")
+        
         break
     
     try:
-        chat_history.add_user_message(pergunta)
-        
-        messages = list(chat_history.messages)
-        messages.append(HumanMessage(content=pergunta))
+        messages_session.append(HumanMessage(content=pergunta))
         
         resultado = agent_memory.invoke(
             {
-                "messages": messages
+                "messages": messages_session
             },
             config={"thread_id": "1"}
         )
@@ -110,8 +115,10 @@ while True:
         else:
             resposta = str(resposta)
 
-        chat_history.add_ai_message(resposta)
-        
+        messages_session.append(HumanMessage(content=resposta))
+        session_manager.add_message(SESSION_ID, "user", pergunta)
+        session_manager.add_message(SESSION_ID, "ai", resposta)
+                
         print("💬💬💬 ARCOS-RJ:", resposta)
         
     except KeyboardInterrupt:
@@ -124,6 +131,12 @@ while True:
             print(f"🗑️ Erro no import da limpeza: {e}")
         except Exception as e:
             print(f"🗑️ Erro na limpeza: {e}")
+        
+        try:
+            session_manager.export_session_by_id(SESSION_ID)
+            print("💾 Sessão exportada com sucesso!")
+        except Exception as e:
+            print(f"❌ Erro ao exportar sessão: {e}")
         
         break
     except Exception as e:

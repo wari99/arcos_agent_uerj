@@ -35,3 +35,12 @@ delete-env:
 
 run:
 	@python3 agent.py
+
+web:
+	@streamlit run app_streamlit.py
+
+chat-history:
+	@sqlite3 ./db/sessions.db ".mode column" ".headers on" "SELECT * FROM message_store;"
+
+f-chat-history:
+	@python3 db/chat_history_pretty.py
