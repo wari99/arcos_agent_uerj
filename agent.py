@@ -82,28 +82,28 @@ print("💬💬💬 Bem-vindo ao ARCOS-RJ! Digite '/sair' para encerrar.\n")
 messages_session = []
 
 while True:
-    pergunta = input("🟡🟡🟡 Você: ").strip()
-
-    if pergunta.lower() == "/sair":
-        print("💬💬💬 ARCOS-RJ: Até logo!")
-
-        try:
-            limpeza_result = limpar_pasta_temporaria_manual()  
-            print("ARCOS-RJ:", limpeza_result.get('mensagem', 'Limpeza concluída!'))
-        except ImportError as e:
-            print(f"ARCOS-RJ: Erro no import da limpeza: {e}")
-        except Exception as e:
-            print(f"ARCOS-RJ: Erro na limpeza: {e}")
-        
-        try:
-            session_manager.export_session_by_id(SESSION_ID)
-            print("💾 Sessão exportada com sucesso!")
-        except Exception as e:
-            print(f"Erro ao exportar sessão: {e}")
-        
-        break
-    
     try:
+        pergunta = input("🟡🟡🟡 Você: ").strip()
+
+        if pergunta.lower() == "/sair":
+            print("💬💬💬 ARCOS-RJ: Até logo!")
+
+            try:
+                limpeza_result = limpar_pasta_temporaria_manual()  
+                print("ARCOS-RJ:", limpeza_result.get('mensagem', 'Limpeza concluída!'))
+            except ImportError as e:
+                print(f"ARCOS-RJ: Erro no import da limpeza: {e}")
+            except Exception as e:
+                print(f"ARCOS-RJ: Erro na limpeza: {e}")
+            
+            try:
+                session_manager.export_session_by_id(SESSION_ID)
+                print("💾 Sessão exportada com sucesso!")
+            except Exception as e:
+                print(f"Erro ao exportar sessão: {e}")
+            
+            break
+        
         messages_session.append(HumanMessage(content=pergunta))
         
         resultado = agent_memory.invoke(
@@ -127,7 +127,7 @@ while True:
         print("💬💬💬 ARCOS-RJ:", resposta)
         
     except KeyboardInterrupt:
-        print("\nCTRL+C - Encerrando...")
+        print("\n\nCTRL + C Encerrando...")
         
         try:
             resultado_limpeza = limpar_pasta_temporaria_manual() 
@@ -145,4 +145,4 @@ while True:
         
         break
     except Exception as e:
-        print(f"Erro: {e}")          
+        print(f"❌ Erro: {e}")
