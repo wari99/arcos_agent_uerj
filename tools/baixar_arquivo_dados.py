@@ -9,6 +9,7 @@ from langchain.tools import tool
 import re 
 from dotenv import load_dotenv
 
+from tools.commons.core import logger
 from tools.commons.settings import (
     TIMEOUT_REQUISICAO,
     MAX_ARQUIVOS,
@@ -23,8 +24,6 @@ from tools.commons.utils import (
 
 load_dotenv()
 
-# =============== TOOL FUNCTIONS
-
 @tool("baixar_arquivo_dados")
 def baixar_arquivo_dados(params: dict) -> Any:
     """Baixa e processa arquivos de uma base de dados"""
@@ -36,7 +35,8 @@ def baixar_arquivo_dados(params: dict) -> Any:
         if not package_id:
             return _criar_resposta_erro("Parâmetro 'package_id' obrigatório")
         
-        print(f"🔍 Base: '{package_id}' | Filtro: '{file_filter}'")
+        logger.info("BAIXAR_ARQUIVO_DADOS - INÍCIO")
+        logger.info(f"Base: '{package_id}' | Filtro: '{file_filter}'")
         
         url = os.getenv("URL_CONSULTAR_PROCESSAR_ARQUIVO").format(package_id)
 
@@ -45,28 +45,38 @@ def baixar_arquivo_dados(params: dict) -> Any:
             resp.raise_for_status()
             data = resp.json()
         except requests.exceptions.RequestException as e:
-            return _criar_resposta_erro(f"Erro ao buscar API: {e}")
+            error_msg = f"Erro ao buscar API: {e}"
+            logger.error(error_msg)
+            return _criar_resposta_erro(error_msg)
         
         if not data.get("success"):
-            return _criar_resposta_erro("Pacote não encontrado ou inacessível")
+            error_msg = "Pacote não encontrado ou inacessível"
+            logger.error(error_msg)
+            return _criar_resposta_erro(error_msg)
         
         resources = data["result"].get("resources", [])
         
         if not resources:
-            return _criar_resposta_erro("Nenhum recurso encontrado")
+            error_msg = "Nenhum recurso encontrado"
+            logger.error(error_msg)
+            return _criar_resposta_erro(error_msg)
         
         if file_filter:
             resources = filtro_deteccao_padrao_estrutural(resources, file_filter)
         
         if not resources:
-            return _criar_resposta_erro(f"Nenhum arquivo com filtro: '{file_filter}'")
+            error_msg = f"Nenhum arquivo com filtro: '{file_filter}'"
+            logger.error(error_msg)
+            return _criar_resposta_erro(error_msg)
         
         resources = resources[:MAX_ARQUIVOS]
-        print(f"📁 {len(resources)} arquivo(s)")
+        logger.info(f"{len(resources)} arquivo(s) encontrado(s)")
         
         pasta_temp = _criar_pasta_temporaria()
         resultados = {}
         stats = {"sucesso": 0, "erro": 0, "cache": 0, "novos": 0}
+        
+        logger.info(f"PROCESSANDO {len(resources)} ARQUIVO(S)")
         
         for resource in resources:
             resultado = _baixar_e_processar_arquivo(resource, pasta_temp)
@@ -75,6 +85,7 @@ def baixar_arquivo_dados(params: dict) -> Any:
             if not resultado.get("sucesso"):
                 resultados[nome] = resultado
                 stats["erro"] += 1
+                logger.warning(f"Erro ao processar: {nome}")
                 continue
             
             df = resultado["df"]
@@ -85,7 +96,7 @@ def baixar_arquivo_dados(params: dict) -> Any:
                 "colunas": len(df.columns),
                 "nomes_colunas": list(df.columns),
                 "memoria_mb": round(memoria_mb, 2),
-                "arquivo_local": resultado["arquivo_local"],
+                "path": resultado["path"],
                 "tipo_arquivo": resultado.get("tipo_arquivo", "desconhecido"),
                 "do_cache": resultado.get("do_cache", False),
                 "sucesso": True
@@ -107,10 +118,16 @@ def baixar_arquivo_dados(params: dict) -> Any:
             "sucesso_geral": stats["sucesso"] > 0
         }
         
+        logger.info(f"RESUMO: {stats['sucesso']} sucesso, {stats['erro']} erro")
+        logger.info(f"Cache: {stats['cache']} | Novos: {stats['novos']}")
+        
         return resultados
         
     except Exception as e:
-        return _criar_resposta_erro(f"Erro geral: {e}")
+        error_msg = f"Erro geral: {e}"
+        logger.error(error_msg)
+        logger.error(f"Traceback: {os.traceback.format_exc()}")
+        return _criar_resposta_erro(error_msg)
 
 # =============== FUNCOES INTERNAS DETECTAR TIPO
 
@@ -121,41 +138,41 @@ def _detectar_tipo_arquivo(nome: str, mimetype: str) -> str:
     nome_lower = nome.lower()
     mime_lower = (mimetype or "").lower()
     
-    print(f"   🔍 Detecção: nome='{nome_lower}' | mime='{mime_lower}'")
+    logger.debug(f"Detecção: nome='{nome_lower}' | mime='{mime_lower}'")
     
     if nome_lower.endswith(".xlsx"):
-        print(f"   ✅ Detectado: XLSX (por extensão)")
+        logger.debug("Detectado: XLSX (por extensão)")
         return "xlsx"
     
     if "spreadsheet" in mime_lower or "ms-excel" in mime_lower:
-        print(f"   ✅ Detectado: XLSX (por MIME type)")
+        logger.debug("Detectado: XLSX (por MIME type)")
         return "xlsx"
     
     if "openxmlformats" in mime_lower or "officedocument" in mime_lower:
-        print(f"   ✅ Detectado: XLSX (por MIME OpenXML)")
+        logger.debug("Detectado: XLSX (por MIME OpenXML)")
         return "xlsx"
     
     if nome_lower.endswith(".zip"):
-        print(f"   ✅ Detectado: ZIP (por extensão)")
+        logger.debug("Detectado: ZIP (por extensão)")
         return "zip"
     
     if "zip" in mime_lower:
-        print(f"   ✅ Detectado: ZIP (por MIME type)")
+        logger.debug("Detectado: ZIP (por MIME type)")
         return "zip"
     
     if nome_lower.endswith(".csv"):
-        print(f"   ✅ Detectado: CSV (por extensão)")
+        logger.debug("Detectado: CSV (por extensão)")
         return "csv"
     
     if "csv" in mime_lower or "text/plain" in mime_lower:
-        print(f"   ✅ Detectado: CSV (por MIME type)")
+        logger.debug("Detectado: CSV (por MIME type)")
         return "csv"
     
     if nome_lower.endswith(".pdf") or "pdf" in mime_lower:
-        print(f"   ⚠️ Tipo: PDF (não suportado)")
+        logger.warning(f"Tipo: PDF (não suportado) - {nome_lower}")
         return "pdf"
     
-    print(f"   ⚠️ Tipo desconhecido: {nome_lower}")
+    logger.warning(f"Tipo desconhecido: {nome_lower}")
     return "desconhecido"
 
 # =============== FUNCOES INTERNAS - CRIAR PASTA E CACHE
@@ -164,8 +181,7 @@ def _criar_pasta_temporaria() -> str:
     """Cria ou retorna pasta temporária existente"""
     if _estado.pasta_temporaria_global is None or not os.path.exists(_estado.pasta_temporaria_global):
         _estado.pasta_temporaria_global = tempfile.mkdtemp(prefix="arcos_rj_")
-
-        print(f"📂 Pasta criada: {_estado.pasta_temporaria_global}")
+        logger.info(f"Pasta temporária criada: {_estado.pasta_temporaria_global}")
 
     return _estado.pasta_temporaria_global
 
@@ -181,17 +197,18 @@ def _arquivo_existe_no_cache(chave: str) -> Optional[Dict]:
 
     info = _estado.cache_arquivos[chave]
 
-    if not os.path.exists(info.get("arquivo_local", "")):
+    if not os.path.exists(info.get("path", "")):
         del _estado.cache_arquivos[chave]
+        logger.warning(f"Arquivo de cache removido (arquivo não encontrado): {info.get('nome')}")
         return None
 
-    print(f"♻️ Cache: {info['nome']}")
+    logger.info(f"Arquivo encontrado em cache: {info['nome']}")
     return info
 
 def _salvar_cache(chave: str, info: Dict) -> None:
     """Salva arquivo no cache"""
     _estado.cache_arquivos[chave] = info
-    print(f"💾 Cache: {info['nome']}")
+    logger.debug(f"Arquivo salvo em cache: {info['nome']}")
 
 def _validar_dataframe(df: Optional[pd.DataFrame]) -> bool:
     """Valida se DataFrame é válido"""
@@ -201,8 +218,7 @@ def _criar_resposta_erro(mensagem: str) -> Dict:
     """Cria resposta padronizada de erro"""
     return {"erro": mensagem, "sucesso": False}
 
-# =============== FUNCAO PRINCIPAL - DOWNLOAD E PROCESSAMENTO
-
+# Download e processar
 def _baixar_e_processar_arquivo(resource: Dict, pasta_temp: str) -> Dict:
     """
     Baixa e processa um arquivo com suporte a CSV, XLSX e ZIP.
@@ -232,61 +248,67 @@ def _baixar_e_processar_arquivo(resource: Dict, pasta_temp: str) -> Dict:
         return {
             "df": cache_info["dataframe"],
             "nome": nome,
-            "arquivo_local": cache_info["arquivo_local"],
+            "path": cache_info["path"],
             "tipo_arquivo": cache_info.get("tipo_arquivo", "desconhecido"),
             "do_cache": True,
             "sucesso": True
         }
     
     tipo_arquivo = _detectar_tipo_arquivo(nome, mimetype)
-    print(f"\n⬇️ Baixando: {nome}")
-    print(f"   Tipo detectado: {tipo_arquivo.upper()}")
+    logger.info(f"Baixando arquivo: {nome}")
+    logger.info(f"Tipo detectado: {tipo_arquivo.upper()}")
     
     try:
         response = requests.get(url, timeout=TIMEOUT_REQUISICAO, stream=True)
         response.raise_for_status()
         conteudo = response.content
         tamanho_mb = len(conteudo) / (1024*1024)
-        print(f"   Tamanho: {tamanho_mb:.2f} MB")
+        logger.info(f"Tamanho do arquivo: {tamanho_mb:.2f} MB")
         
     except requests.exceptions.Timeout:
-        return _criar_resposta_erro(f"Timeout ({TIMEOUT_REQUISICAO}s) ao baixar arquivo")
+        error_msg = f"Timeout ({TIMEOUT_REQUISICAO}s) ao baixar arquivo"
+        logger.error(error_msg)
+        return _criar_resposta_erro(error_msg)
     except requests.exceptions.RequestException as e:
-        return _criar_resposta_erro(f"Erro de rede ao baixar: {e}")
+        error_msg = f"Erro de rede ao baixar: {e}"
+        logger.error(error_msg)
+        return _criar_resposta_erro(error_msg)
     
     if tipo_arquivo == "xlsx":
-        print("📊 Processando como XLSX...")
+        logger.info("Processando arquivo como XLSX...")
         df = _processar_xlsx(conteudo)
     elif tipo_arquivo == "zip":
-        print("📦 Processando como ZIP...")
+        logger.info("Processando arquivo como ZIP...")
         df = _processar_zip(conteudo)
     elif tipo_arquivo == "csv":
-        print("📄 Processando como CSV...")
+        logger.info("Processando arquivo como CSV...")
         df = _processar_csv(conteudo)
     else:
-        print(f"⚠️ Tipo desconhecido, tentando como CSV...")
+        logger.warning(f"Tipo desconhecido, tentando como CSV...")
         df = _processar_csv(conteudo)
     
     if not _validar_dataframe(df):
-        return _criar_resposta_erro(
-            f"DataFrame vazio ou inválido após processamento de {tipo_arquivo.upper()}"
-        )
+        error_msg = f"DataFrame vazio ou inválido após processamento de {tipo_arquivo.upper()}"
+        logger.error(error_msg)
+        return _criar_resposta_erro(error_msg)
     
-    arquivo_local = os.path.join(pasta_temp, nome)
+    path = os.path.join(pasta_temp, nome)
     try:
-        with open(arquivo_local, 'wb') as f:
+        with open(path, 'wb') as f:
             f.write(conteudo)
-        print(f"✅ Arquivo salvo: {arquivo_local}")
+        logger.info(f"Arquivo salvo localmente: {path}")
     except IOError as e:
-        return _criar_resposta_erro(f"Erro ao salvar arquivo: {e}")
+        error_msg = f"Erro ao salvar arquivo: {e}"
+        logger.error(error_msg)
+        return _criar_resposta_erro(error_msg)
 
-    print(f"✅ {len(df):,} linhas × {len(df.columns)} colunas")
+    logger.info(f"DataFrame processado: {len(df):,} linhas × {len(df.columns)} colunas")
     memoria_mb = df.memory_usage(deep=True).sum() / (1024*1024)
-    print(f"   Memória: {memoria_mb:.2f} MB")
+    logger.info(f"Memória utilizada: {memoria_mb:.2f} MB")
     
     info_cache = {
         "nome": nome,
-        "arquivo_local": arquivo_local,
+        "path": path,
         "dataframe": df,
         "url_original": url,
         "tipo_arquivo": tipo_arquivo,
@@ -301,9 +323,8 @@ def _baixar_e_processar_arquivo(resource: Dict, pasta_temp: str) -> Dict:
     return {
         "df": df,
         "nome": nome,
-        "arquivo_local": arquivo_local,
+        "path": path,
         "tipo_arquivo": tipo_arquivo,
         "do_cache": False,
         "sucesso": True
     }
-
