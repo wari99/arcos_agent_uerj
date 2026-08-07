@@ -1,3 +1,8 @@
+import warnings
+import logging
+warnings.filterwarnings("ignore", message=".*additionalProperties.*")
+logging.getLogger("langchain_google_vertexai.functions_utils").setLevel(logging.ERROR)
+
 import os
 from pathlib import Path
 from dataclasses import dataclass
@@ -94,7 +99,7 @@ while True:
             session_manager.export_session_by_id(SESSION_ID)
             print("💾 Sessão exportada com sucesso!")
         except Exception as e:
-            print(f"❌ Erro ao exportar sessão: {e}")
+            print(f"Erro ao exportar sessão: {e}")
         
         break
     
@@ -140,4 +145,4 @@ while True:
         
         break
     except Exception as e:
-        print(f"Erro: {e}")
+        print(f"Erro: {e}")          

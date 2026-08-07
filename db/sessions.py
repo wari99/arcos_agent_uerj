@@ -13,14 +13,10 @@ DB_URI = f"sqlite:///{DB_PATH}"
 
 logger.info(f"Banco: {DB_PATH}")
 
+
 class SessionManager:
-    """Gerencia sessões de conversa.
-    
-    Responsabilidades:
-    - Recuperar históricos de chat
-    - Armazenar mensagens indefinidamente (SEM deletar)
-    - Exportar sessões para arquivos .db separados com timestamp
-    - Inicializar o banco de dados
+    """
+    Gerencia sessões de conversa. Recuperando histórico e armazenando as mensagens. Exporta as sessoes em tipo .db com timestamp atrelado.
     """
     
     def __init__(self, db_path: str = str(DB_PATH)):
@@ -29,7 +25,6 @@ class SessionManager:
         self._create_table()
     
     def _create_table(self):
-        """Cria a tabela com a estrutura correta se não existir."""
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
@@ -54,7 +49,6 @@ class SessionManager:
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-            
             message_data = {
                 "type": "human" if role == "user" else "ai",
                 "data": {
@@ -75,6 +69,7 @@ class SessionManager:
             return False
     
     def get_history(self, session_id: str) -> SQLChatMessageHistory:
+        """Retorna o histórico de uma sessão."""
         return SQLChatMessageHistory(
             session_id=session_id,
             connection_string=self.connection_string,
@@ -82,9 +77,7 @@ class SessionManager:
         )
     
     def clear_session(self, session_id: str) -> bool:
-        """
-        Apaga todas as mensagens de uma sessão específica.
-        """
+        """Apaga todas as mensagens de uma sessão específica."""
         try:
             conn = sqlite3.connect(self.db_path)
             conn.execute(
@@ -100,10 +93,7 @@ class SessionManager:
             return False
     
     def export_session_by_id(self, session_id: str) -> bool:
-        """
-        Exporta uma sessão específica para um arquivo .db separado com timestamp.
-        """
-
+        """Exporta uma sessão específica para um arquivo .db separado com timestamp."""
         try:
             EXPORTS_DIR.mkdir(exist_ok=True)
             
@@ -145,20 +135,20 @@ class SessionManager:
             export_conn.commit()
             export_conn.close()
             
-            logger.info(f"Sessão exportada: {filename} ({len(messages)} mensagens)")
+            logger.info(f"Sessão exportada com sucesso: {filename} ({len(messages)} mensagens)")
             return True
             
         except Exception as e:
-            logger.error(f"Erro exportar sessão {session_id}: {e}")
+            logger.error(f"Erro ao exportar sessão {session_id}: {e}")
             return False
     
-    @staticmethod
+    @staticmethod # uri do banco 
     def get_uri() -> str:
-        """Retorna a URI do banco para usar em componentes LangChain."""
         return DB_URI
 
 _manager = SessionManager()
 logger.info("SessionManager inicializado")
+
 def get_session_manager() -> SessionManager:
     """Retorna a instância do gerenciador de sessões."""
     return _manager
