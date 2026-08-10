@@ -135,3 +135,74 @@ def executar_estatistica(
         "path": path,
         "sucesso": True,
     }
+
+def executar_valores_unicos(
+    df: pd.DataFrame,
+    coluna: str,
+    path: str,
+    limite: int = 15,
+    offset: int = 0    
+) -> Dict[str, Any]:
+    """
+    Retorna valores únicos de uma coluna com paginação.
+    O usuário pergunta sobre valores únicos de uma coluna e o agente deve verificar se a coluna existe e retornar os valores únicos paginados.
+    
+    Args:
+        df: DataFrame a analisar
+        coluna: Nome da coluna para extrair valores únicos
+        path: Caminho do arquivo
+        limite: Quantos valores retornar por vez (padrão: 15)
+        offset: Posição de início (padrão: 0)
+    
+    Returns:
+        Dict com valores únicos paginados e contagem total
+    """
+    try:
+        limite = int(limite)
+        offset = int(offset)
+    except (ValueError, TypeError):
+        return {
+            "erro": f"Parâmetros inválidos: limite={limite}, offset={offset}",
+            "instrucoes": "limite e offset devem ser números inteiros",
+            "sucesso": False,
+        }
+    
+    if coluna not in df.columns:
+        return {
+            "erro": f"Coluna '{coluna}' não encontrada",
+            "colunas_disponiveis": list(df.columns),
+            "sucesso": False,
+        }
+    
+    try:
+        valores_unicos_completo = df[coluna].dropna().unique().tolist()
+        quantidade_total = len(valores_unicos_completo)
+        
+        valores_pagina = valores_unicos_completo[offset:offset + limite]
+        has_more = (offset + limite) < quantidade_total
+        
+        logger.info(f"Valores únicos em '{coluna}': {quantidade_total} total")
+        logger.info(f"Página: {offset}-{offset + len(valores_pagina)} de {quantidade_total}")
+        
+        return {
+            "coluna": coluna,
+            "valores": valores_pagina,
+            "quantidade_retornada": len(valores_pagina),
+            "quantidade_total": quantidade_total,
+            "offset": offset,
+            "limite": limite,
+            "tem_proxima_pagina": has_more,
+            "pagina_atual": (offset // limite) + 1,
+            "total_paginas": (quantidade_total + limite - 1) // limite,
+            "nulos": int(df[coluna].isna().sum()),
+            "path": path,
+            "sucesso": True,
+        }
+    
+    except Exception as e:
+        logger.error(f"Erro ao processar coluna '{coluna}': {str(e)}")
+        return {
+            "erro": f"Erro ao processar: {str(e)}",
+            "coluna": coluna,
+            "sucesso": False,
+        }
