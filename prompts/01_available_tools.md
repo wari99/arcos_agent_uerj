@@ -40,7 +40,8 @@
 | `agrupar_e_somar` | "Qual o total de X?" | `filter_column`, `filter_value`, `sum_column` |
 | `contar_por_valor` | "Quantas linhas têm valor X?" | `column`, `value` |
 | `filtrar_por_turno` | "Quantos de manhã?" | `turno`, `filter_column`, `filter_value` |
-| `contar_por_turno` | "Qual turno teve mais?" | `filter_column`, `filter_value` |
+| `contar_por_turno` | "Qual turno teve mais ...?" | - |
+| `valores_unicos` | "A coluna <alvo> tem quais valores" | - |
 
 **Turnos:**
 - 0 = Manhã (06:00 - 11:59)

@@ -10,7 +10,7 @@ Contém dois tipos de arquivo. Você **DEVE** escolher o correto.
 
 **Arquivo:** `TRANSACAO_GRATUIDADE_CONSOLIDADO_YYYY_MM.csv`  
 **file_filter:** `"consolidado_YYYY_MM"`  
-**Volume:** ~15 linhas por arquivo (MUITO PEQUENO)  
+**Volume:** ~15 linhas por arquivo 
 **Usar quando:** pergunta sobre MÊS inteiro, sem dia específico
 
 #### Colunas
@@ -75,7 +75,7 @@ Cada linha JÁ É uma combinação (Modal + Tipo de Gratuidade).
 | Data da Transação | datetime | 2025-01-15 08:32:00 |
 | Descrição da Aplicação | string | "7001 - Idoso", "6001 - Vale Educação..." |
 | Escola | string | Nome da escola (se estudante) |
-| Linha | string | "128003 - S. JOÃO - CAXIAS" |
+| Linha | string | "128003 - S. JOÃO - CAXIAS" ou "L1 LMC - Estação Largo do Machado" |
 | Nº Carro | int | 12345 |
 | Nº Cartão | string | Identificador do cartão |
 | Nº Censo Escola | int | Código INEP |
@@ -202,15 +202,82 @@ Tarifas e dados da concessionária SuperVia (trens urbanos/metropolitanos do RJ)
 
 É a **ÚNICA** concessionária de trens no Rio de Janeiro.
 
-⚠️ Baixar **APENAS .xlsx/.xls** (ignorar .pdf).
+Baixar **APENAS .xlsx/.xls** (ignorar .pdf).
 
 ### Quando usar
 
 - "tarifa do trem", "preço do trem", "passagem do trem"
 - "quanto custa o trem", "SuperVia"
 
-### ⚠️ Para descobrir colunas e arquivos
+### Para descobrir colunas e arquivos
 
 1. Usar `listar_recursos_da_base(package_id="concessionaria-supervia")`
 2. Nos resultados, escolher o arquivo `.xlsx` (não o `.pdf`)
 3. Depois `preview` para entender a estrutura
+
+---
+
+# INSTRUÇÃO CRÍTICA: EXTRAÇÃO DE PARÂMETROS NAS BASES DE DADOS
+
+## OPERAÇÃO: valores_unicos
+
+Quando o usuário mencionar qualquer uma dessas frases:
+- "valores únicos da coluna X"
+- "valores distintos de X"
+- "quais valores existe em X {coluna alvo}"
+- "quais são os valores de X"
+- "o que tem na coluna X"
+
+**VOCÊ DEVE OBRIGATORIAMENTE:**
+
+1. **IDENTIFICAR** qual coluna o usuário está pedindo (está no texto dele ou use a OPERACAO `mostrar_colunas` para inferir)
+2. **EXTRAIR** o nome exato da coluna que está sendo pedida
+3. **MAPEAR** para o parâmetro: `"coluna": "<NOME EXATO DA COLUNA>"`
+4. **NUNCA DEIXAR VAZIO** — se o usuário não disser qual coluna, PERGUNTE. Se não encontrar, CITE AS OPÇÕES COM A OPERACAO `mostrar_colunas`
+
+### MAPEAMENTO AUTOMÁTICO DO PREENCHIMENTO DO PARÂMETRO "COLUNA"
+
+Quando o usuário disser "leia valores da coluna...", extraia o nome citado em seguida:
+
+| Texto do Usuário | Parâmetro coluna |
+|---|---|
+| "leia valores da coluna Linha" | `"coluna": "Linha"` |
+| "o que tem em coluna "Operadora"" | `"coluna": "Operadora"` |
+| "valores únicos da coluna Descrição da Aplicação" | `"coluna": "Descrição da Aplicação"` |
+| "leia Linha" | `"coluna": "Linha"` |
+
+### EXEMPLO PASSO A PASSO
+
+**Usuário:** "Use a operação de valores_unicos e leia a coluna "Linha""
+
+**Agente pensa:**
+1. Operação = `valores_unicos`
+2. Mencionou "coluna "Linha"" → extrair `"Linha"`
+3. Mapear: `"coluna": "Linha"`
+4. Chamar com TODOS os parâmetros necessários
+
+**Agente DEVE chamar:**
+```json
+{
+  "package_id": "setram_sgr",
+  "file_filter": "publico_2026_07_04",
+  "operation": "valores_unicos",
+  "coluna": "Linha",
+  "limite": 15,
+  "offset": 0
+}
+```
+
+---
+
+## VERIFICAÇÃO
+
+Antes de chamar qualquer ferramenta, SEMPRE log:
+```
+Extraiu coluna = "Linha" ✓
+Vai chamar: valores_unicos com coluna="Linha"
+```
+
+Se NÃO conseguir extrair, PERGUNTE ao usuário qual coluna deseja.
+
+---

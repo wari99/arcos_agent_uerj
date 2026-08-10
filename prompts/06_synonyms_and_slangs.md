@@ -1,7 +1,5 @@
 # Mapeamento de Sinônimos
 
----
-
 ## Bases de Dados
 
 | Sinônimos | Base |
@@ -49,10 +47,61 @@
 
 ---
 
-## Linhas de Ônibus
+## Linhas - Linhas de Ônibus
 
-**Formato:** "CÓDIGO - PONTO_A - PONTO_B"
+**Formato:** `CÓDIGO [+ LETRA] - TRAJETO`
+
+**Estrutura:**
+- **Identificador:** Números (1-7 dígitos) + opcionalmente LETRA (A-Z)
+- **Trajeto:** Nome dos pontos separados por hífen (ex: ORIGEM - DESTINO)
 
 **Exemplos:**
-- "128003 - S. JOÃO - CAXIAS (MATADOURO)"
-- "434L - NOVA IGUAÇU - TAQUARA"
+- `740D - CHARITAS - LEBLON` (código 740, letra D)
+- `809 - CHARITAS - LEME URB` (código 809, sem letra)
+- `434L - NOVA IGUAÇU - TAQUARA` (código 434, letra L)
+- `128038 - NOVA AURORA - MADUREIRA` (código 128038, sem letra)
+
+### IMPORTANTE — Busca Flexível
+
+O usuário pode citar:
+- Linha completa: `"434L - NOVA IGUAÇU - TAQUARA"`
+- Apenas código com letra: `"434L"`
+- Apenas código (sem letra): `"434"` → buscar `434L` ou `434` mais próximo (Ou perguntar ao usuário qual é a preferência se existir mais uma linha)
+- Apenas trajeto: `"TAQUARA"` → localizar qual linha que possui trajeto TAQUARA
+
+**Estratégia:**
+1. Tentar match exato (ex: `434L`)
+2. Se falhar, buscar código sem letra (ex: `434`)
+3. Se falhar, buscar trajeto (ex: buscar `TAQUARA` em qualquer linha)
+4. Retornar melhor correspondência encontrada
+
+---
+
+## Linhas de Metrô
+
+**Formato:** `L[NÚMERO] [SIGLA] - Estação [NOME_ESTAÇÃO]`
+
+**Estrutura:**
+- **L[NÚMERO]:** Identificador da linha (L1, L2, L4, etc.)
+- **[SIGLA]:** Abreviação em 2-3 letras (LMC = Largo do Machado, NSP = Nossa Senhora da Paz)
+- **NOME_ESTAÇÃO:** Nome completo da estação
+
+**Exemplos:**
+- `L1 LMC - Estação Largo do Machado` (Linha 1, estação Largo do Machado)
+- `L4 NSP - Estação Nossa Senhora da Paz` (Linha 4, estação Nossa Senhora da Paz)
+
+#### IMPORTANTE — Busca Flexível
+
+O usuário pode citar:
+- Nome da estação e Modal (mais comum): `"Metro Largo do Machado"` ou `"Metro Lgo do Machado"` → localizar qual linha passa lá pelo seu nome oficial
+- Apenas nome da estação: `"Largo do Machado"` → localizar qual linha passa lá
+- Linha completa (menos comum): `"L1 LMC - Estação Largo do Machado"`
+- Apenas número de linha: `"L1"` ou `"Linha 1"`
+- Apenas sigla: `"LMC"` → buscar estação correspondente
+
+**Estratégia:**
+1. Tentar match exato (ex: `L1 LMC`)
+2. Se falhar, buscar por número de linha (ex: `L1`)
+3. Se falhar, buscar por nome de estação (busca parcial em NOME_ESTAÇÃO)
+4. Se falhar, buscar por sigla (match em [SIGLA])
+5. Retornar melhor correspondência encontrada
