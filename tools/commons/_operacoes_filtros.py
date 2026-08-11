@@ -4,11 +4,15 @@ Cada função cuida do seu próprio log/debug. As operações são do escopo de 
 
 - executar_contar_por_valor: conta linhas que contêm determinado valor
 - executar_agrupar_e_somar: filtra por valor e soma coluna numérica
+- executar_agrupar_valores_unicos: conta quantas vezes cada valor único de uma coluna aparece
 """
 
 import pandas as pd
 from typing import Any, Dict
-import unicodedata  
+import unicodedata
+import logging
+
+logger = logging.getLogger(__name__)
 
 def _normalizar_texto(texto: str) -> str:
     """Remove acentos e normaliza para comparação"""
@@ -18,18 +22,19 @@ def _normalizar_texto(texto: str) -> str:
     sem_acento = ''.join(c for c in nfkd if not unicodedata.category(c).startswith('M'))
     return sem_acento.lower().strip()
 
+
 def _log_inicio(nome_operacao: str, **kwargs):
     """Log padronizado no início de cada operação."""
-    print(f"\n🔍 {nome_operacao}:")
+    logger.info(f"{nome_operacao}")
     for chave, valor in kwargs.items():
-        print(f"   {chave}: {valor}")
+        logger.info(f"   {chave}: {valor}")
 
 
 def executar_contar_por_valor(
     df: pd.DataFrame,
     coluna: str,
     valor: str,
-    arquivo_local: str
+    path: str
 ) -> Dict[str, Any]:
     """
     Conta quantas linhas contêm determinado valor em uma coluna.
@@ -39,7 +44,7 @@ def executar_contar_por_valor(
         df: DataFrame a analisar
         coluna: Nome da coluna para filtrar
         valor: Valor a buscar (parcial, case-insensitive)
-        arquivo_local: Caminho do arquivo
+        path: Caminho do arquivo
 
     Returns:
         Dict com total de linhas e valores encontrados
@@ -51,19 +56,15 @@ def executar_contar_por_valor(
         Valor_procurado=valor
     )
 
-    # ============================================================
-    # Validação de parâmetros
-    # ============================================================
-
     if not coluna or valor is None:
-        print(f"❌ Parâmetros faltando")
+        logger.error("Parâmetros faltando")
         return {
             "erro": "Parâmetros 'column' e 'value' são obrigatórios",
             "sucesso": False,
         }
 
     if coluna not in df.columns:
-        print(f"❌ Coluna '{coluna}' não existe")
+        logger.error(f"Coluna '{coluna}' não existe")
         return {
             "erro": f"Coluna '{coluna}' não encontrada",
             "colunas_disponiveis": list(df.columns),
@@ -72,9 +73,9 @@ def executar_contar_por_valor(
 
     # ============================================================
     # Busca parcial case-insensitive (str.contains)
-    # Ex: "Idoso" ENCONTRA "7001 - Idoso" ✅
-    # Ex: "7001" ENCONTRA "7001 - Idoso" ✅
-    # Ex: "idoso" ENCONTRA "7001 - Idoso" ✅ (case-insensitive)
+    # Ex: "Idoso" ENCONTRA "7001 - Idoso" 
+    # Ex: "7001" ENCONTRA "7001 - Idoso" 
+    # Ex: "idoso" ENCONTRA "7001 - Idoso" 
     # ============================================================
 
     #df_filtrado = df[
@@ -96,16 +97,16 @@ def executar_contar_por_valor(
         df_filtrado[coluna].unique().tolist() if total_linhas > 0 else []
     )
 
-    print(f"\n   🔢 RESULTADO: {total_linhas} linhas encontradas")
+    logger.info(f"RESULTADO: {total_linhas} linhas encontradas")
     if valores_encontrados:
-        print(f"   📋 Valores correspondentes: {valores_encontrados}")
+        logger.info(f"Valores correspondentes: {valores_encontrados}")
 
     return {
         "coluna": coluna,
         "valor_buscado": valor,
         "valores_encontrados": valores_encontrados,
         "total_linhas": int(total_linhas),
-        "arquivo_local": arquivo_local,
+        "path": path,
         "sucesso": True,
     }
 
@@ -115,7 +116,7 @@ def executar_agrupar_e_somar(
     filter_column: str,
     filter_value: str,
     sum_column: str,
-    arquivo_local: str
+    path: str
 ) -> Dict[str, Any]:
     """
     Filtra por valor em uma coluna e soma outra coluna numérica.
@@ -126,7 +127,7 @@ def executar_agrupar_e_somar(
         filter_column: Coluna para filtrar (ex: "TIPO_GRATUIDADE")
         filter_value: Valor a filtrar (ex: "Idoso")
         sum_column: Coluna numérica para somar (ex: "QUANTIDADE_TRANSACAO")
-        arquivo_local: Caminho do arquivo
+        path: Caminho do arquivo
 
     Returns:
         Dict com total de linhas, soma e valores encontrados
@@ -139,19 +140,15 @@ def executar_agrupar_e_somar(
         Somar_coluna=sum_column
     )
 
-    # ============================================================
-    # Validação de parâmetros
-    # ============================================================
-
     if not filter_column or filter_value is None:
-        print(f"❌ Parâmetros de filtro faltando")
+        logger.error("Parâmetros de filtro faltando")
         return {
             "erro": "Parâmetros 'filter_column' e 'filter_value' são obrigatórios",
             "sucesso": False,
         }
 
     if not sum_column:
-        print(f"❌ Falta sum_column")
+        logger.error("Falta sum_column")
         return {
             "erro": "Parâmetro 'sum_column' é obrigatório",
             "exemplo": "sum_column='QUANTIDADE_TRANSACAO'",
@@ -159,7 +156,7 @@ def executar_agrupar_e_somar(
         }
 
     if filter_column not in df.columns:
-        print(f"❌ Coluna '{filter_column}' não existe")
+        logger.error(f"Coluna '{filter_column}' não existe")
         return {
             "erro": f"Coluna de filtro '{filter_column}' não encontrada",
             "colunas_disponiveis": list(df.columns),
@@ -167,19 +164,15 @@ def executar_agrupar_e_somar(
         }
 
     if sum_column not in df.columns:
-        print(f"❌ Coluna '{sum_column}' não existe")
+        logger.error(f"Coluna '{sum_column}' não existe")
         return {
             "erro": f"Coluna a somar '{sum_column}' não encontrada",
             "colunas_disponiveis": list(df.columns),
             "sucesso": False,
         }
 
-    # ============================================================
-    # Filtrar dados
-    # ============================================================
-
     valores_unicos = df[filter_column].unique()
-    print(f"\n   📊 Valores únicos em '{filter_column}': {list(valores_unicos)[:10]}")
+    logger.info(f"Valores únicos em '{filter_column}': {list(valores_unicos)[:10]}")
 
     #df_filtrado = df[
     #    df[filter_column]
@@ -198,17 +191,13 @@ def executar_agrupar_e_somar(
         df_filtrado[filter_column].unique().tolist() if total_linhas > 0 else []
     )
 
-    print(f"\n   📊 Linhas filtradas: {total_linhas}")
+    logger.info(f"Linhas filtradas: {total_linhas}")
     if valores_encontrados:
-        print(f"   ✅ Valores correspondentes: {valores_encontrados}")
-
-    # ============================================================
-    # Sem resultados
-    # ============================================================
+        logger.info(f"Valores correspondentes: {valores_encontrados}")
 
     if total_linhas == 0:
-        print(f"   ⚠️ NENHUMA linha corresponde ao valor '{filter_value}'")
-        print(f"   Valores disponíveis: {list(valores_unicos)[:10]}")
+        logger.warning(f"NENHUMA linha corresponde ao valor '{filter_value}'")
+        logger.info(f"Valores disponíveis: {list(valores_unicos)[:10]}")
 
         return {
             "filter_column": filter_column,
@@ -220,12 +209,9 @@ def executar_agrupar_e_somar(
             "sucesso": True,
         }
 
-    # ============================================================
-    # Somar coluna numérica
-    # ============================================================
-
+    # somar de coluna numérica
     if sum_column not in df_filtrado.select_dtypes(include=["number"]).columns:
-        print(f"   ❌ Coluna '{sum_column}' não é numérica")
+        logger.error(f"Coluna '{sum_column}' não é numérica")
         return {
             "erro": f"Coluna '{sum_column}' não é numérica",
             "tipo_coluna": str(df[sum_column].dtype),
@@ -233,9 +219,8 @@ def executar_agrupar_e_somar(
         }
 
     soma_total = df_filtrado[sum_column].sum()
-    print(f"   ✅ Soma de '{sum_column}': {soma_total:,.0f}")
-    print(f"\n   Primeiras linhas filtradas:")
-    print(df_filtrado[[filter_column, sum_column]].head())
+    logger.info(f"Soma de '{sum_column}': {soma_total:,.0f}")
+    logger.debug(f"Primeiras linhas filtradas:\n{df_filtrado[[filter_column, sum_column]].head()}")
 
     return {
         "filter_column": filter_column,
@@ -244,6 +229,95 @@ def executar_agrupar_e_somar(
         "sum_column": sum_column,
         "total_linhas": int(total_linhas),
         "soma_total": float(soma_total),
-        "arquivo_local": arquivo_local,
+        "path": path,
+        "sucesso": True,
+    }
+
+
+def executar_agrupar_valores_unicos(
+    df: pd.DataFrame,
+    coluna_grupo: str,
+    path: str = None
+) -> Dict[str, Any]:
+    """
+    Conta quantas vezes cada valor único aparece em uma coluna.
+    Perfeito quando cada transação vale 1 ponto.
+
+    Args:
+        df: DataFrame a analisar
+        coluna_grupo: Coluna com valores únicos (ex: "LINHA")
+        path: Caminho do arquivo
+
+    Returns:
+        Dict com ranking completo, top 10, e estatísticas
+    """
+    if not coluna_grupo:
+        logger.error("Parâmetro 'coluna_grupo' faltando")
+        return {
+            "erro": "Parâmetro 'coluna_grupo' é obrigatório",
+            "sugestao": "Você deve informar qual coluna deseja agrupar",
+            "exemplo": "coluna_grupo='Linha'",
+            "sucesso": False,
+        }
+
+    if coluna_grupo not in df.columns:
+        logger.error(f"Coluna '{coluna_grupo}' não encontrada")
+        return {
+            "erro": f"Coluna '{coluna_grupo}' não existe neste arquivo",
+            "coluna_fornecida": coluna_grupo,
+            "colunas_disponiveis": list(df.columns),
+            "sucesso": False,
+        }
+
+    _log_inicio(
+        "AGRUPAR_VALORES_UNICOS (COUNT)",
+        Coluna_grupo=coluna_grupo,
+        Total_registros=len(df),
+        Valores_unicos=df[coluna_grupo].nunique()
+    )
+
+    logger.info("Contando ocorrências de cada valor único...")
+
+    contagem = df[coluna_grupo].value_counts().to_dict()
+
+    total_grupos = len(contagem)
+    soma_total = sum(contagem.values())
+    media = soma_total / total_grupos if total_grupos > 0 else 0
+
+    ranking = sorted(
+        contagem.items(),
+        key=lambda x: x[1],
+        reverse=True
+    )
+
+    logger.info(f"{total_grupos} grupos únicos encontrados")
+    logger.info(f"Total de transações: {soma_total:,}")
+    logger.info(f"Média por grupo: {media:.2f}")
+
+    logger.info("TOP 10:")
+    for i, (grupo, count) in enumerate(ranking[:10], 1):
+        percentual = (count / soma_total * 100) if soma_total > 0 else 0
+        logger.info(f"   {i}º - {grupo}: {count:,} ({percentual:.2f}%)")
+
+    return {
+        "coluna_grupo": coluna_grupo,
+        "operacao": "contagem",
+        "total_grupos": int(total_grupos),
+        "soma_total": int(soma_total),
+        "media_por_grupo": round(media, 2),
+        "top_10": [
+            {
+                "posicao": i + 1,
+                "grupo": grupo,
+                "total": int(count),
+                "percentual": round((count / soma_total * 100) if soma_total > 0 else 0, 2)
+            }
+            for i, (grupo, count) in enumerate(ranking[:10])
+        ],
+        "ranking_completo": [
+            {"grupo": grupo, "total": int(count)}
+            for grupo, count in ranking
+        ],
+        "path": path,
         "sucesso": True,
     }

@@ -29,6 +29,7 @@ from .commons._operacoes_turnos import (
 from .commons._operacoes_filtros import (
     executar_contar_por_valor,
     executar_agrupar_e_somar,
+    executar_agrupar_valores_unicos,
 )
  
 from .commons._operacoes_concessionarias import (
@@ -73,6 +74,9 @@ def analisar_dados_arquivo(params: dict) -> Any:
       - filter_column: coluna para filtrar (ex: "Descricao da Aplicação")
       - filter_value: valor a buscar (ex: "Idoso")
       - data_coluna: nome da coluna com datetime (padrão: "Data da Transação")
+
+      Para 'agrupar_valores_unicos':
+      - coluna_grupo: coluna com valores únicos (ex: "Linha", "Operadora")
     """
 
     try:
@@ -176,6 +180,13 @@ def analisar_dados_arquivo(params: dict) -> Any:
                         sum_column=params.get("sum_column"),
                         path=arquivo_info["path"]
                     )
+
+                elif operation == "agrupar_valores_unicos":
+                    resultados[nome] = executar_agrupar_valores_unicos(
+                        df=df,
+                        coluna_grupo=params.get("coluna_grupo"),
+                        path=arquivo_info["path"]
+                    ) 
 
                 elif operation == "filtrar_por_turno":
                     turno = params.get("turno", "todos")
@@ -437,7 +448,8 @@ def analisar_dados_arquivo(params: dict) -> Any:
                             "contar_linhas", "mostrar_colunas", "preview",
                             "contar_por_valor", "agrupar_e_somar",
                             "media", "soma", "max", "min",
-                            "valores_unicos","leitura_tarifa"
+                            "valores_unicos","leitura_tarifa",
+                            "executar_agrupar_valores_unicos"
                         ],
                         "sucesso": False,
                     }

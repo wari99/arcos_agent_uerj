@@ -23,7 +23,7 @@ Contém dois tipos de arquivo. Você **DEVE** escolher o correto.
 | Tipo de Gratuidade | string | Idoso, Deficiente Físico, Estudante |
 | Qtde Transações | int | 2150000 |
 
-#### ⚠️ IMPORTANTE
+#### IMPORTANTE
 
 Cada linha JÁ É uma combinação (Modal + Tipo de Gratuidade).
 
@@ -84,17 +84,17 @@ Cada linha JÁ É uma combinação (Modal + Tipo de Gratuidade).
 | Sindicato | string | Nome do sindicato |
 | Transações | int | 1 (sempre 1, cada linha = 1 passagem) |
 
-#### ⚠️ MAPEAMENTO OBRIGATÓRIO: "Descrição da Aplicação" no DIÁRIO
+#### MAPEAMENTO OBRIGATÓRIO: "Descrição da Aplicação" no DIÁRIO
 
 No arquivo diário, os tipos de gratuidade NÃO são "Idoso" ou "Estudante" direto. São CÓDIGOS.
 
 | Tipo no Consolidado | Códigos no Diário ("Descrição da Aplicação") |
 |---|---|
 | Idoso | "7001 - Idoso" |
-| Estudante | ⚠️ SÃO VÁRIOS — você DEVE somar TODOS:<br/>• "6001 - Vale Educação Estadual"<br/>• "6004 - Vale Educação Federal"<br/>• "6013 - Outros Estudantes"<br/>• "6007 - Vale Educação Municipal intermunicipal" |
+| Estudante |  SÃO VÁRIOS — você DEVE somar TODOS:<br/>• "6001 - Vale Educação Estadual"<br/>• "6004 - Vale Educação Federal"<br/>• "6013 - Outros Estudantes"<br/>• "6007 - Vale Educação Municipal intermunicipal" |
 | Deficiente | "7002 - Deficiente Físico" |
 
-#### ⚠️ PARA ESTUDANTES NO DIÁRIO
+#### PARA ESTUDANTES NO DIÁRIO
 
 **NUNCA** filtre por `filter_value="Estudante"` — esse valor NÃO EXISTE no diário.
 
@@ -110,7 +110,7 @@ Total de estudantes = A + B + C + D
 
 **Alternativa:** usar `preview` para ver os valores únicos da coluna, depois somar manualmente.
 
-#### ⚠️ PARA TURNOS NO DIÁRIO
+#### PARA TURNOS NO DIÁRIO
 
 A coluna de referência para turno é **"Data da Transação"** (NÃO "Data do Processamento").
 
@@ -120,7 +120,7 @@ Turnos:
 - 2 = Noite (18:00 - 23:59)
 - 3 = Madrugada (00:00 - 05:59)
 
-⚠️ Transações com hora 00:00 são **MADRUGADA (turno 3)**, NÃO noite.
+Transações com hora 00:00 são **MADRUGADA (turno 3)**, NÃO noite.
 
 ---
 
@@ -136,7 +136,7 @@ Dados de bilhetagem eletrônica: validações, embarques pagos, movimento de pas
 - Perguntas sobre volume total de passageiros (pagos + gratuitos)
 - Dados de movimento geral do transporte
 
-### ⚠️ Para descobrir colunas e arquivos
+### Para descobrir colunas e arquivos
 
 1. Usar `listar_recursos_da_base(package_id="setram_sbe")`
 2. Depois `preview` para entender a estrutura
@@ -145,7 +145,7 @@ Dados de bilhetagem eletrônica: validações, embarques pagos, movimento de pas
 
 ## TARIFAS — 3 BASES DE CONCESSIONÁRIAS
 
-### ⚠️ REGRA GERAL
+### REGRA GERAL
 
 As bases de concessionárias possuem arquivos em PDF e XLSX com o mesmo conteúdo.
 
@@ -179,14 +179,14 @@ Histórico de tarifas do MetrôRio desde 1998.
 
 Tarifas e dados da concessionária CCR Barcas (travessias aquaviárias no RJ).
 
-⚠️ Baixar **APENAS .xlsx/.xls** (ignorar .pdf).
+ Baixar **APENAS .xlsx/.xls** (ignorar .pdf). Os dados são espelhados, ou seja, o mesmo conteúdo está em ambos os tipos.
 
 ### Quando usar
 
 - "tarifa da barca", "preço da barca", "passagem da barca"
 - "quanto custa a barca", "CCR Barcas"
 
-### ⚠️ Para descobrir colunas e arquivos
+### Para descobrir colunas e arquivos
 
 1. Usar `listar_recursos_da_base(package_id="concessionaria-ccr-barcas")`
 2. Nos resultados, escolher o arquivo `.xlsx` (não o `.pdf`)
@@ -281,3 +281,47 @@ Vai chamar: valores_unicos com coluna="Linha"
 Se NÃO conseguir extrair, PERGUNTE ao usuário qual coluna deseja.
 
 ---
+
+## OPERAÇÃO: agrupar_valores_unicos
+
+### Quando usar
+
+Quando o usuário quer saber a **contagem de cada valor único** em uma coluna, especialmente com grandes volumes (como encontramos em arquivos do tipo diário)
+
+| Pergunta do Usuário | Operação a usar |
+|---|---|
+| "Quantas transações teve cada linha?" | `agrupar_valores_unicos` |
+| "Qual linha teve mais movimento?" | `agrupar_valores_unicos` |
+| "Ranking de linhas por volume" | `agrupar_valores_unicos` |
+| "Conte cada operadora" | `agrupar_valores_unicos` |
+| "Quantas ocorrências por tipo de gratuidade?" | `agrupar_valores_unicos` |
+
+### Diferença com outras operações
+
+| Operação | O que faz | Quando usar |
+|---|---|---|
+| `contar_por_valor` | Filtra por 1 valor E conta linhas que podem ter valores diferentes | "Quantas linhas têm 'Idoso'?" |
+| `agrupar_e_somar` | Filtra por 1 valor E soma coluna numérica | "Qual o total de Idosos de ônibus?" |
+| `agrupar_valores_unicos` | Agrupa TODOS os valores únicos E conta ocorrências | "Quais foram as linhas que tiveram mais passageiros?" |
+
+### Como funciona a operação agrupar_valores_unicos
+
+1. Pega a coluna alvo (ex: "LINHA")
+2. Extrai todos os valores únicos
+3. Conta quantas vezes CADA uma aparece
+4. Ordena descendente
+5. Retorna Top 10 + ranking completo
+
+### Exemplo prático (Dados MOCK)
+
+**Dados brutos:**
+```
+LINHA                           TRANSACAO
+422 - COSME VELHO               1
+430M - CABUÇU X NITERÓI         1
+612D - NITEROI X CATETE         1
+430M - CABUÇU X NITERÓI         1
+430M - CABUÇU X NITERÓI         1
+100 - CENTRAL                   1
+```
+
