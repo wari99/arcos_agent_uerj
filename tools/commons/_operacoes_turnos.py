@@ -3,15 +3,16 @@ Operações relacionadas a análise por turnos (faixas horárias). As operaçõe
 
 - filtrar_por_turno: filtra transações por turno específico
 - contar_por_turno: conta qual turno teve mais uso
-- comparar_por_turno: agregação para gráficos
 """
 
 import pandas as pd
 import traceback
+import logging
 from typing import Dict, Any
 
 from tools.commons.settings import FAIXAS_HORARIAS
 
+logger = logging.getLogger(__name__)
 
 def _determinar_faixa_horaria(hora: int, minuto: int = 0) -> int:
     """
@@ -47,10 +48,10 @@ def _determinar_faixa_horaria(hora: int, minuto: int = 0) -> int:
 def executar_filtrar_por_turno(
     df: pd.DataFrame,
     turno: str,
-    filter_column: str,
-    filter_value: str,
     data_coluna: str,
-    arquivo_local: str
+    path: str,
+    filter_column: str = "None",
+    filter_value: str = "None",    
 ) -> Dict[str, Any]:
     """
     Filtra transações por turno específico (ou todos) com filtro opcional.
@@ -61,20 +62,21 @@ def executar_filtrar_por_turno(
         filter_column: Coluna adicional para filtrar (opcional)
         filter_value: Valor a buscar naquela coluna (opcional)
         data_coluna: Nome da coluna com datetime
-        arquivo_local: Caminho do arquivo
+        path: Caminho do arquivo
     
     Returns:
         Dict com resultado da filtragem
     """
     
-    print(f"\n FILTRAR_POR_TURNO:")
-    print(f"   Turno: {turno}")
-    print(f"   Coluna de filtro: {filter_column}")
-    print(f"   Valor de filtro: {filter_value}")
-    print(f"   Coluna de data: {data_coluna}")
+    logger.info("FILTRAR_POR_TURNO:")
+    logger.info(f"   Turno: {turno}")
+    logger.info(f"   Coluna de filtro: {filter_column}")
+    logger.info(f"   Valor de filtro: {filter_value}")
+    logger.info(f"   Coluna de data: {data_coluna}")
     
     try:
         if data_coluna not in df.columns:
+            logger.error(f"Coluna de data '{data_coluna}' não encontrada")
             return {
                 "erro": f"Coluna de data '{data_coluna}' não encontrada",
                 "colunas_disponiveis": list(df.columns),
@@ -82,36 +84,39 @@ def executar_filtrar_por_turno(
             }
         
         df[data_coluna] = pd.to_datetime(df[data_coluna], errors='coerce')
-        print(f"✅ Coluna de data convertida para datetime")
+        logger.info("Coluna de data convertida para datetime")
         
         df['_hora_extraida'] = df[data_coluna].dt.hour
         
         df['_minuto_extraido'] = df[data_coluna].dt.minute
         df['_faixa_horaria'] = df.apply(lambda row: _determinar_faixa_horaria(row['_hora_extraida'], row['_minuto_extraido']), axis=1)        
-        print(f"✅ Faixas horárias calculadas")
+        logger.info("Faixas horárias calculadas")
         
         if turno != "todos":
             try:
                 turno_num = int(turno)
                 if turno_num not in FAIXAS_HORARIAS:
+                    logger.error(f"Turno '{turno}' inválido")
                     return {
                         "erro": f"Turno '{turno}' inválido. Use 0=Manhã, 1=Tarde, 2=Noite, 3=Madrugada",
                         "sucesso": False,
                     }
                 df_filtrado = df[df['_faixa_horaria'] == turno_num]
                 info_turno = FAIXAS_HORARIAS[turno_num]
-                print(f"✅ Filtrado para turno {turno_num} ({info_turno['nome']})")
+                logger.info(f"Filtrado para turno {turno_num} ({info_turno['nome']})")
             except ValueError:
+                logger.error("Turno deve ser um número (0-3) ou 'todos'")
                 return {
                     "erro": f"Turno deve ser um número (0-3) ou 'todos'",
                     "sucesso": False,
                 }
         else:
             df_filtrado = df.copy()
-            print(f"✅ Usando todos os turnos")
+            logger.info("Usando todos os turnos")
         
-        if filter_column and filter_value is not None: # filtro adicional se fornecer coluna
+        if filter_column and filter_value is not None:
             if filter_column not in df_filtrado.columns:
+                logger.error(f"Coluna de filtro '{filter_column}' não encontrada")
                 return {
                     "erro": f"Coluna de filtro '{filter_column}' não encontrada",
                     "colunas_disponiveis": list(df_filtrado.columns),
@@ -121,10 +126,10 @@ def executar_filtrar_por_turno(
             df_filtrado = df_filtrado[
                 df_filtrado[filter_column].astype(str).str.contains(str(filter_value), case=False, na=False)
             ]
-            print(f"✅ Filtrado por {filter_column}='{filter_value}'")
+            logger.info(f"Filtrado por {filter_column}='{filter_value}'")
         
         total_linhas = len(df_filtrado)
-        print(f"\n    RESULTADO: {total_linhas} transações encontradas")
+        logger.info(f"RESULTADO: {total_linhas} transações encontradas")
         
         if turno != "todos":
             info_turno = FAIXAS_HORARIAS[turno_num]
@@ -136,7 +141,7 @@ def executar_filtrar_por_turno(
                 "filter_value": filter_value,
                 "total_transacoes": int(total_linhas),
                 "descricao": f"{total_linhas} transações no turno {info_turno['nome']} ({info_turno['intervalo']})",
-                "arquivo_local": arquivo_local,
+                "path": path,
                 "sucesso": True,
             }
         else:
@@ -150,13 +155,14 @@ def executar_filtrar_por_turno(
                 "turno": "todos",
                 "distribuicao_por_turno": distribuicao,
                 "total_transacoes": int(total_linhas),
-                "arquivo_local": arquivo_local,
+                "path": path,
                 "sucesso": True,
             }
     
     except Exception as e:
         error_msg = f"Erro ao filtrar por turno: {str(e)}"
-        print(f"❌ {error_msg}")
+        logger.error(error_msg)
+        logger.error(traceback.format_exc())
         return {
             "erro": error_msg,
             "traceback": traceback.format_exc(),
