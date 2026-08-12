@@ -3,11 +3,6 @@ from datetime import datetime
 from tools.commons.core import logger
 
 
-def get_current_date() -> dict:
-    """Get the current date in the format YYYY-MM-DD."""
-    return {"current_date": datetime.now().strftime("%Y-%m-%d")}
-
-
 def load_prompt_from_markdown(prompts_dir: str) -> str:
     """Load and join markdown prompt files from a directory.
 

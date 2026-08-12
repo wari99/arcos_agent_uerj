@@ -1,18 +1,21 @@
+import warnings
+import logging
+warnings.filterwarning("ignore", message=".*additionalProperties")
+logging.getLogger("langchain_google_vertexai.functions_utils").setLevel(logging.ERROR)
+
 import os
-import requests
 import tempfile
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from pathlib import Path
 from dotenv import load_dotenv
 
 from langchain_google_vertexai import ChatVertexAI
-from langchain.tools import tool
 from langchain.agents import create_agent, AgentState
 from langgraph.graph import StateGraph
 from langgraph.checkpoint.memory import InMemorySaver
 
-from prompt import prompt
-
+from prompts.commons.utils import load_prompt_from_markdown
+from tools.get_current_date import get_current_date
 from tools.listar_bases import listar_bases
 from tools.buscar_infos_base import buscar_infos_base
 from tools.listar_recursos_da_base import listar_recursos_da_base
@@ -23,6 +26,9 @@ from tools.analisar_dados_arquivo import analisar_dados_arquivo
 from tools.gerar_graficos import gerar_graficos  
 
 load_dotenv()
+
+PROMPTS_DIR = Path(__file__).parent / "prompts"
+ROOT_PROMPT = load_prompt_from_markdown(str(PROMPTS_DIR))
 
 @dataclass
 class Context:
@@ -38,7 +44,7 @@ model = ChatVertexAI(
 agent = create_agent(
     model=model,
     context_schema=Context,
-    system_prompt=prompt, 
+    system_prompt=ROOT_PROMPT, 
     tools=[
         listar_bases,           
         buscar_infos_base,      
@@ -46,7 +52,8 @@ agent = create_agent(
         baixar_arquivo_dados,        
         analisar_dados_arquivo, 
         gerenciar_cache_sessao,  
-        gerar_graficos,              
+        gerar_graficos,
+        get_current_date              
     ],
 )
 
