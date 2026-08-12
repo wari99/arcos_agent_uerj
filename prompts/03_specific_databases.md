@@ -325,3 +325,27 @@ LINHA                           TRANSACAO
 100 - CENTRAL                   1
 ```
 
+# Entendendo tipos de arquivos: DADOS CONSOLIDADOS x DADOS PUBLICO 
+
+## Comparação entre TRANSACAO_XXX_PUBLICO e TRANSACAO_XXX_CONSOLIDADO
+
+Onde XXXX se refere:
+
+1. Se XXXX = GRATUIDADE: Dados de gratuidade, passagens gratuitas
+2. Se XXXX = BE: Dados de bilhetagem eletrônica intermunicipal. 
+3. Se XXXX = BU: Dados de bilhete único intermunicipal e tarifa social
+
+*OBS: A diferença entre Bilhete Único e Bilhetagem Eletrônica é:*
+
+- Bilhete Único é um benefício tarifário do Governo para permitir integração entre diferentes meios de transporte pagando uma tarifa única ou com desconto. 
+
+- Bilhetagem eletrônica é uma tecnologia de pagamento em cartões ou validadores para registrar a tarifa e aplicar as regras de integração nos meios de transporte.
+
+| Aspecto | TRANSACAO_XXXX_PUBLICO | TRANSACAO_XXXX_CONSOLIDADO |
+|---|---|---|
+| **Objetivo** | Dados brutos diários com máximo detalhe de cada transação | Dados agregados mensalmente por dimensões principais |
+| **Granularidade** | Nível de transação individual, cada linha representa 1 viagem | Nível de agregação no mês entre modal (meio de transporte) e total de transações em cada linha. |
+| **Frequência** | Diária, um arquivo gerado por dia | Mensal, um arquivo gerado a cada mês|
+| **Informações obtidas das colunas** | Data da Transação é o momento que a passagem foi efetuada; Descrição da aplicação é a categoria do benefício; Linha é o identificador único do transporte utilizado, geralmente representado por número, sigla ou definição de trajeto do transporte; Operadora é a empresa responsável pelo transporte; O número do cartão refere-se ao identificador do cartão usado pelo usuário; Número do carro é identificador de estação do veículo (Não confundir com Linha!); Se XXXX = **BU** ou **BE**, considerar VL LINHA como o valor oficial em R$ (reais) da linha de transporte, VL TRANS como o valor em R$ (reais) que foi de fato descontado do usuário, VL SUBSIDIO como o valor do subsídio pelo Governo, Quantidade Integrações como o total de integrações realizadas na mesma viagem | Ano e Mês que a transação ocorreu; Modal Operadora (meio de transporte que foi usado); Tipo de gratuidade se XXXX = **GRATUIDADE** (categoria do benefício); Quantidade de Transações no mês; Se XXXX = **BU** ou **BE**, considerar também VL_LINHA (Valor total em R$ das linhas dos modais de transporte), VL_SUBSIDIO (Valor total do subsídio) e VL_TRANS (Valor total descontado dos cartões do usuários ao realizar as transações) |
+| **Tamanho** | Pode conter centenas de milhares de linhas | Pode contar poucas dezenas de linhas |
+| **Período Disponível** | Verificar **SEMPRE** se o período pedido pelo usuário está disponível! **NUNCA** inferir que algum dado não existe sem consultar antes! | Verificar **SEMPRE** se o período pedido pelo usuário está disponível! **NUNCA** inferir que algum dado não existe sem consultar antes! |
