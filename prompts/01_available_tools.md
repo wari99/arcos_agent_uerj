@@ -32,16 +32,24 @@
 
 ### analisar_dados_arquivo - Operações
 
-| Operação | Quando usar | Parâmetros extras |
-|---|---|---|
-| `contar_linhas` | "Quantas linhas tem?" | - |
-| `mostrar_colunas` | "Que colunas tem?" | - |
-| `preview` | "Mostra as primeiras linhas" | - |
-| `agrupar_e_somar` | "Qual o total de X?" | `filter_column`, `filter_value`, `sum_column` |
-| `contar_por_valor` | "Quantas linhas têm valor X?" | `column`, `value` |
-| `filtrar_por_turno` | "Quantos de manhã?" | `turno`, `filter_column`, `filter_value` |
-| `contar_por_turno` | "Qual turno teve mais ...?" | - |
-| `valores_unicos` | "A coluna <alvo> tem quais valores" | - |
+
+| Operação | Quando usar | Parâmetros extras | Retorna |
+|---|---|---|---|
+| `contar_linhas` | "Quantas linhas tem?" | - | Total de linhas e colunas |
+| `mostrar_colunas` | "Que colunas tem?" | - | Lista de colunas e tipos |
+| `preview` | "Mostra as primeiras linhas" | - | Primeiras 5 linhas |
+| `soma` | "Qual o total em todas as colunas numéricas?" | - | Soma de TODAS colunas numéricas |
+| `media` | "Qual a média das colunas numéricas?" | - | Média de TODAS colunas numéricas |
+| `max` | "Qual o valor máximo?" | - | Máximo de TODAS colunas numéricas |
+| `min` | "Qual o valor mínimo?" | - | Mínimo de TODAS colunas numéricas |
+| `agrupar_e_somar` | "Qual o total de X filtrando por Y?" | `filter_column`, `filter_value`, `sum_column` | Soma de coluna com filtro |
+| `contar_por_valor` | "Quantas linhas têm valor X?" | `column`, `filter_value` | Contagem de linhas com filtro |
+| `filtrar_por_turno` | "Quantos de manhã?" | `turno`, `filter_column`, `filter_value` | Dados filtrados por turno |
+| `contar_por_turno` | "Qual turno teve mais ...?" | - | Contagem por turno |
+| `valores_unicos` | "Quais valores únicos em <coluna>?" | `column` (opcional: `limite`, `offset`) | Lista de valores únicos paginada |
+| `agrupar_valores_unicos` | "Quantas ocorrências por valor em <coluna>?" | `column` | Contagem de cada valor único |
+
+
 
 **Turnos:**
 - 0 = Manhã (06:00 - 11:59)
