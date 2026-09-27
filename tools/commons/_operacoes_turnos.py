@@ -1,48 +1,36 @@
-"""
-Operações relacionadas a análise por turnos (faixas horárias). As operações são do escopo de analisar_dados_arquivo.py
-
-- filtrar_por_turno: filtra transações por turno específico
-- contar_por_turno: conta qual turno teve mais uso
-"""
-
 import pandas as pd
 import traceback
 import logging
 from typing import Dict, Any
+import numpy as np
 
 from tools.commons.settings import FAIXAS_HORARIAS
 
 logger = logging.getLogger(__name__)
 
-def _determinar_faixa_horaria(hora: int, minuto: int = 0) -> int:
+def _calcular_faixa_horaria_vetorizado(df: pd.DataFrame, data_coluna: str) -> np.ndarray:
     """
-    Determina qual faixa horária (turno) uma hora e minuto obtida em datetime pertencem.
-    
-    Faixas definidas (em minutos desde meia-noite):
-    - 0 = Madrugada: 00:01 até 06:00 (minutos 1 até 360)
-    - 1 = Manhã:     06:01 até 12:00 (minutos 361 até 720)
-    - 2 = Tarde:     12:01 até 18:00 (minutos 721 até 1080)
-    - 3 = Noite:     18:01 até 23:59 (minutos 1081 até 1439) + 00:00 (minuto 0)
+    Calcula faixas horárias de forma vetorizada (muito mais rápido que apply).
     
     Args:
-        hora: Hora do dia (0-23)
-        minuto: Minuto da hora (0-59), padrão=0
+        df: DataFrame com coluna de datetime
+        data_coluna: Nome da coluna com datetime
     
     Returns:
-        int: Índice da faixa (0=madrugada, 1=manhã, 2=tarde, 3=noite)
+        Array numpy com índices de faixas horárias
     """
-    minutos_totais = hora * 60 + minuto
+    horas = df[data_coluna].dt.hour
+    minutos = df[data_coluna].dt.minute
+    minutos_totais = horas * 60 + minutos
     
-    if minutos_totais == 0:
-        return 3  
-    elif 1 <= minutos_totais <= 360:
-        return 0
-    elif 361 <= minutos_totais <= 720:
-        return 1
-    elif 721 <= minutos_totais <= 1080:
-        return 2
-    else:
-        return 3
+    faixas = np.zeros(len(df), dtype=int)
+    faixas[(minutos_totais == 0)] = 3
+    faixas[(minutos_totais >= 1) & (minutos_totais <= 360)] = 0
+    faixas[(minutos_totais >= 361) & (minutos_totais <= 720)] = 1
+    faixas[(minutos_totais >= 721) & (minutos_totais <= 1080)] = 2
+    faixas[(minutos_totais > 1080)] = 3
+    
+    return faixas
 
 
 def executar_filtrar_por_turno(
@@ -50,29 +38,14 @@ def executar_filtrar_por_turno(
     turno: str,
     data_coluna: str,
     path: str,
-    filter_column: str = "None",
-    filter_value: str = "None",    
+    filter_column: str = None,
+    filter_value: str = None,    
 ) -> Dict[str, Any]:
     """
     Filtra transações por turno específico (ou todos) com filtro opcional.
-    
-    Args:
-        df: DataFrame a analisar
-        turno: "0", "1", "2", "3" ou "todos"
-        filter_column: Coluna adicional para filtrar (opcional)
-        filter_value: Valor a buscar naquela coluna (opcional)
-        data_coluna: Nome da coluna com datetime
-        path: Caminho do arquivo
-    
-    Returns:
-        Dict com resultado da filtragem
     """
     
-    logger.info("FILTRAR_POR_TURNO:")
-    logger.info(f"   Turno: {turno}")
-    logger.info(f"   Coluna de filtro: {filter_column}")
-    logger.info(f"   Valor de filtro: {filter_value}")
-    logger.info(f"   Coluna de data: {data_coluna}")
+    logger.info(f"FILTRAR_POR_TURNO: turno={turno}, filtro={filter_column}={filter_value}, data_coluna={data_coluna}")
     
     try:
         if data_coluna not in df.columns:
@@ -83,14 +56,17 @@ def executar_filtrar_por_turno(
                 "sucesso": False,
             }
         
-        df[data_coluna] = pd.to_datetime(df[data_coluna], errors='coerce')
-        logger.info("Coluna de data convertida para datetime")
+        if df[data_coluna].dtype != 'datetime64[ns]':
+            df = df.copy()  
+            df[data_coluna] = pd.to_datetime(df[data_coluna], errors='coerce')
+            logger.info("Coluna de data convertida para datetime")
+        else:
+            logger.info("Coluna de data já está em datetime")
         
-        df['_hora_extraida'] = df[data_coluna].dt.hour
-        
-        df['_minuto_extraido'] = df[data_coluna].dt.minute
-        df['_faixa_horaria'] = df.apply(lambda row: _determinar_faixa_horaria(row['_hora_extraida'], row['_minuto_extraido']), axis=1)        
+        faixas_horarias = _calcular_faixa_horaria_vetorizado(df, data_coluna)
         logger.info("Faixas horárias calculadas")
+        
+        mask = np.ones(len(df), dtype=bool)
         
         if turno != "todos":
             try:
@@ -98,10 +74,10 @@ def executar_filtrar_por_turno(
                 if turno_num not in FAIXAS_HORARIAS:
                     logger.error(f"Turno '{turno}' inválido")
                     return {
-                        "erro": f"Turno '{turno}' inválido. Use 0=Manhã, 1=Tarde, 2=Noite, 3=Madrugada",
+                        "erro": f"Turno '{turno}' inválido. Use 0=Madrugada, 1=Manhã, 2=Tarde, 3=Noite",
                         "sucesso": False,
                     }
-                df_filtrado = df[df['_faixa_horaria'] == turno_num]
+                mask &= (faixas_horarias == turno_num)
                 info_turno = FAIXAS_HORARIAS[turno_num]
                 logger.info(f"Filtrado para turno {turno_num} ({info_turno['nome']})")
             except ValueError:
@@ -111,23 +87,28 @@ def executar_filtrar_por_turno(
                     "sucesso": False,
                 }
         else:
-            df_filtrado = df.copy()
+            turno_num = None
             logger.info("Usando todos os turnos")
         
-        if filter_column and filter_value is not None:
-            if filter_column not in df_filtrado.columns:
+        if filter_column is not None and filter_value is not None:
+            if filter_column not in df.columns:
                 logger.error(f"Coluna de filtro '{filter_column}' não encontrada")
                 return {
                     "erro": f"Coluna de filtro '{filter_column}' não encontrada",
-                    "colunas_disponiveis": list(df_filtrado.columns),
+                    "colunas_disponiveis": list(df.columns),
                     "sucesso": False,
                 }
             
-            df_filtrado = df_filtrado[
-                df_filtrado[filter_column].astype(str).str.contains(str(filter_value), case=False, na=False)
-            ]
+            filter_value_str = str(filter_value)
+            mask &= df[filter_column].astype(str).str.contains(
+                filter_value_str, 
+                case=False, 
+                na=False,
+                regex=False
+            )
             logger.info(f"Filtrado por {filter_column}='{filter_value}'")
         
+        df_filtrado = df[mask]
         total_linhas = len(df_filtrado)
         logger.info(f"RESULTADO: {total_linhas} transações encontradas")
         
@@ -145,11 +126,10 @@ def executar_filtrar_por_turno(
                 "sucesso": True,
             }
         else:
-            distribuicao = {}
-            for t in range(4):
-                count = len(df_filtrado[df_filtrado['_faixa_horaria'] == t])
-                if count > 0:
-                    distribuicao[FAIXAS_HORARIAS[t]['nome']] = int(count)
+            distribuicao = {FAIXAS_HORARIAS[t]['nome']: 0 for t in range(4)}
+            unique, counts = np.unique(faixas_horarias[mask], return_counts=True)
+            for t, count in zip(unique, counts):
+                distribuicao[FAIXAS_HORARIAS[t]['nome']] = int(count)
             
             return {
                 "turno": "todos",

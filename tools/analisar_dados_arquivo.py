@@ -7,6 +7,7 @@ from langchain.tools import tool
 from tools.commons.core import logger
 from tools.commons.settings import FAIXAS_HORARIAS
 from tools.gerenciar_cache_sessao import obter_arquivos_para_analise
+import numpy as np  
 
 from tools.commons.utils import (
     obter_pasta_temporaria,
@@ -22,7 +23,7 @@ from .commons._operacoes_basicas import (
 )
 
 from .commons._operacoes_turnos import (
-    _determinar_faixa_horaria,
+    _calcular_faixa_horaria_vetorizado,
     executar_filtrar_por_turno,
 )
 
@@ -65,7 +66,7 @@ def analisar_dados_arquivo(params: dict) -> Any:
       - sum_column: coluna numérica para somar (ex: "QUANTIDADE_TRANSACAO")
       
       Para 'filtrar_por_turno':
-      - turno: número da faixa (0=manhã, 1=tarde, 2=noite, 3=madrugada) ou "todos"
+      - turno: número da faixa (0=Madrugada, 1=Manhã, 2=Tarde, 3=Noite) ou "todos"
       - filter_column: coluna para filtrar ADICIONAL (ex: "Descricao da Aplicação")
       - filter_value: valor a buscar ADICIONAL (ex: "Idoso")
       - data_coluna: nome da coluna com datetime (padrão: "Data da Transação")
@@ -235,14 +236,11 @@ def analisar_dados_arquivo(params: dict) -> Any:
                             logger.error(f"Coluna '{data_coluna}' não existe")
                             continue
                         
-                        df[data_coluna] = pd.to_datetime(df[data_coluna], errors='coerce')
+                        if df[data_coluna].dtype != 'datetime64[ns]':
+                            df = df.copy()
+                            df[data_coluna] = pd.to_datetime(df[data_coluna], errors='coerce')
                         
-                        df['_hora'] = df[data_coluna].dt.hour
-                        df['_minuto'] = df[data_coluna].dt.minute
-                        df['_turno'] = df.apply(
-                            lambda row: _determinar_faixa_horaria(row['_hora'], row['_minuto']),
-                            axis=1
-                        )
+                        df['_turno'] = _calcular_faixa_horaria_vetorizado(df, data_coluna)
                         
                         logger.info("Datas e turnos processados")
                         df_filtrado = df.copy()                  
@@ -356,34 +354,43 @@ def analisar_dados_arquivo(params: dict) -> Any:
                         continue
 
                     try:
-                        df[data_coluna] = pd.to_datetime(df[data_coluna], errors='coerce')
+                        df_trabalho = df
                         
-                        df['_hora_extraida'] = df[data_coluna].dt.hour
-                        df['_minuto_extraido'] = df[data_coluna].dt.minute
-                        df['_faixa_horaria'] = df.apply(
-                            lambda row: _determinar_faixa_horaria(row['_hora_extraida'], row['_minuto_extraido']),
-                            axis=1
-                        )
+                        if df_trabalho[data_coluna].dtype != 'datetime64[ns]':
+                            df_trabalho = df_trabalho.copy()
+                            df_trabalho[data_coluna] = pd.to_datetime(
+                                df_trabalho[data_coluna], 
+                                errors='coerce',
+                            )
+                            logger.info("Conversão de datetime concluída")
                         
-                        df_filtrado = df.copy()
+                        faixas_horarias = _calcular_faixa_horaria_vetorizado(df_trabalho, data_coluna)
+                        logger.info("Faixas horárias calculadas")
+                        
+                        mask = np.ones(len(df_trabalho), dtype=bool)
+                        
                         if filter_column and filter_value is not None:
-                            if filter_column not in df_filtrado.columns:
+                            if filter_column not in df_trabalho.columns:
                                 resultados[nome] = {
                                     "erro": f"Coluna de filtro '{filter_column}' não encontrada",
-                                    "colunas_disponiveis": list(df.columns),
+                                    "colunas_disponiveis": list(df_trabalho.columns),
                                     "sucesso": False,
                                 }
                                 logger.error(f"Coluna '{filter_column}' não existe")
                                 continue
                             
-                            df_filtrado = df_filtrado[
-                                df_filtrado[filter_column].astype(str).str.contains(str(filter_value), case=False, na=False)
-                            ]
-                            logger.info(f"Filtrado por {filter_column}='{filter_value}': {len(df_filtrado)} linhas")
+                            mask &= df_trabalho[filter_column].astype(str).str.contains(
+                                str(filter_value), 
+                                case=False, 
+                                na=False,
+                                regex=False
+                            )
+                            logger.info(f"Filtrado por {filter_column}='{filter_value}'")
                         else:
-                            logger.info(f"Sem filtro aplicado: usando todas as {len(df_filtrado)} linhas")
+                            logger.info("Sem filtro aplicado: usando todas as linhas")
                         
-                        total_linhas = len(df_filtrado)
+                        total_linhas = np.sum(mask)
+                        logger.info(f"Total de linhas a analisar: {total_linhas}")
                         
                         if total_linhas == 0:
                             resultados[nome] = {
@@ -393,29 +400,28 @@ def analisar_dados_arquivo(params: dict) -> Any:
                             logger.warning("Nenhuma linha encontrada")
                             continue
 
+                        unique_turnos, counts = np.unique(faixas_horarias[mask], return_counts=True)
+                        
                         contagem_por_turno = {}
                         turno_com_mais = None
                         max_count = 0
 
-                        for t in range(4):
-                            count = len(df_filtrado[df_filtrado['_faixa_horaria'] == t])
-                            info_turno = FAIXAS_HORARIAS[t]
-                            
-                            if count > 0:
-                                porcentagem = round((count / total_linhas) * 100, 2)
-                                contagem_por_turno[info_turno['nome']] = {
-                                    "quantidade": int(count),
-                                    "intervalo": info_turno['intervalo'],
-                                    "porcentagem": porcentagem
-                                }
-                                
-                                if count > max_count:
-                                    max_count = count
-                                    turno_com_mais = info_turno['nome']
-
                         logger.info("Distribuição por turno:")
-                        for turno_nome, dados in contagem_por_turno.items():
-                            logger.info(f"{turno_nome}: {dados['quantidade']} ({dados['porcentagem']}%)")
+                        for turno_idx, count in zip(unique_turnos, counts):
+                            info_turno = FAIXAS_HORARIAS[int(turno_idx)]
+                            porcentagem = round((count / total_linhas) * 100, 2)
+                            
+                            contagem_por_turno[info_turno['nome']] = {
+                                "quantidade": int(count),
+                                "intervalo": info_turno['intervalo'],
+                                "porcentagem": porcentagem
+                            }
+                            
+                            if count > max_count:
+                                max_count = int(count)
+                                turno_com_mais = info_turno['nome']
+                            
+                            logger.info(f"{info_turno['nome']}: {count} ({porcentagem}%)")
 
                         filtro_descricao = f"Filtro: {filter_column}='{filter_value}'" if (filter_column and filter_value is not None) else "Sem filtro (todas as transações)"
                         
@@ -426,7 +432,7 @@ def analisar_dados_arquivo(params: dict) -> Any:
                             "total_transacoes": int(total_linhas),
                             "contagem_por_turno": contagem_por_turno,
                             "turno_com_mais_uso": turno_com_mais,
-                            "turno_com_mais_uso_quantidade": int(max_count),
+                            "turno_com_mais_uso_quantidade": max_count,
                             "resumo": f"{turno_com_mais} teve o maior uso ({max_count} transações, {contagem_por_turno[turno_com_mais]['porcentagem']}%)",
                             "path": arquivo_info["path"],
                             "sucesso": True,
@@ -440,7 +446,6 @@ def analisar_dados_arquivo(params: dict) -> Any:
                             "traceback": traceback.format_exc(),
                             "sucesso": False,
                         }
-
                 else:
                     resultados[nome] = {
                         "erro": f"Operação desconhecida: {operation}",
