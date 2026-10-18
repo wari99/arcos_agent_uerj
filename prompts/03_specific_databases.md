@@ -2,7 +2,27 @@
 
 ---
 
+## ESCOLHENDO A BASE CORRETA - SETRAM
+
+**Regra Hierárquica de Seleção:**
+
+1. **O usuário mencionou explicitamente uma base?**
+   - "Bilhete Único", "BU", "SBU", "integração" → `setram_sbu`
+   - "Gratuidade", "idoso", "estudante", "PCD", "benefício" → `setram_sgr`
+   - Nenhuma menção específica → **PROSSIGA PARA PASSO 2**
+
+2. **O usuário forneceu contexto da pergunta anterior?**
+   - Pergunta anterior foi sobre SBU ou SGR? → **MANTENHA A MESMA BASE** (contexto persistente)
+   - Primeira pergunta ou contexto perdido? → **PROSSIGA PARA PASSO 3**
+
+3. **Nenhuma indicação específica?**
+   - Use a base mais generalizada: `setram_sbe` (Bilhetagem Eletrônica)
+
+---
+
 ## BASE: SETRAM_SGR (Gratuidades no Transporte)
+
+**package_id:** `"setram_sgr"`
 
 Contém dois tipos de arquivo. Você **DEVE** escolher o correto.
 
@@ -10,14 +30,14 @@ Contém dois tipos de arquivo. Você **DEVE** escolher o correto.
 
 **Arquivo:** `TRANSACAO_GRATUIDADE_CONSOLIDADO_YYYY_MM.csv`  
 **file_filter:** `"consolidado_YYYY_MM"`  
-**Volume:** ~15 linhas por arquivo 
+**Volume:** ~15 linhas por arquivo  
 **Usar quando:** pergunta sobre MÊS inteiro, sem dia específico
 
 #### Colunas
 
 | Coluna | Tipo | Valores exemplo |
 |---|---|---|
-| Ano | int | 2025 |
+| Ano | int | 2026 |
 | Mês | int | 1, 2, ..., 12 |
 | Modal Operadora | string | ÔNIBUS, METRÔ, TRENS, BARCAS, VANS |
 | Tipo de Gratuidade | string | Idoso, Deficiente Físico, Estudante |
@@ -75,7 +95,7 @@ Cada linha JÁ É uma combinação (Modal + Tipo de Gratuidade).
 | Data da Transação | datetime | 2025-01-15 08:32:00 |
 | Descrição da Aplicação | string | "7001 - Idoso", "6001 - Vale Educação..." |
 | Escola | string | Nome da escola (se estudante) |
-| Linha | string | "128003 - S. JOÃO - CAXIAS" ou "L1 LMC - Estação Largo do Machado" |
+| Linha | string | "128003 - S. JOÃO - CAXIAS" ou "L1 CTR - Estação Central - Metrô" |
 | Nº Carro | int | 12345 |
 | Nº Cartão | string | Identificador do cartão |
 | Nº Censo Escola | int | Código INEP |
@@ -91,7 +111,7 @@ No arquivo diário, os tipos de gratuidade NÃO são "Idoso" ou "Estudante" dire
 | Tipo no Consolidado | Códigos no Diário ("Descrição da Aplicação") |
 |---|---|
 | Idoso | "7001 - Idoso" |
-| Estudante |  SÃO VÁRIOS — você DEVE somar TODOS:<br/>• "6001 - Vale Educação Estadual"<br/>• "6004 - Vale Educação Federal"<br/>• "6013 - Outros Estudantes"<br/>• "6007 - Vale Educação Municipal intermunicipal" |
+| Estudante | SÃO VÁRIOS — você DEVE somar TODOS:<br/>• "6001 - Vale Educação Estadual"<br/>• "6004 - Vale Educação Federal"<br/>• "6013 - Outros Estudantes"<br/>• "6007 - Vale Educação Municipal intermunicipal" |
 | Deficiente | "7002 - Deficiente Físico" |
 
 #### PARA ESTUDANTES NO DIÁRIO
@@ -115,12 +135,89 @@ Total de estudantes = A + B + C + D
 A coluna de referência para turno é **"Data da Transação"** (NÃO "Data do Processamento").
 
 Turnos:
-- 0 = Manhã (06:00 - 11:59)
-- 1 = Tarde (12:00 - 17:59)
-- 2 = Noite (18:00 - 23:59)
-- 3 = Madrugada (00:00 - 05:59)
+- 0 = Madrugada: 00:01 até 06:00
+- 1 = Manhã:     06:01 até 12:00
+- 2 = Tarde:     12:01 até 18:00
+- 3 = Noite:     18:01 até 00:00
 
-Transações com hora 00:00 são **MADRUGADA (turno 3)**, NÃO noite.
+---
+
+## Padrões de Linhas na Coluna "Linha"
+
+A coluna **"Linha"** segue padrões específicos por modal. Use esta seção para **buscas flexíveis**.
+
+### PADRÃO 1: Ônibus Intermunicipal
+
+**Formato:** `<ID> - <TERMINAL_1> - <TERMINAL_2>`
+
+**Estrutura:**
+- **ID:** Número (1-6 dígitos) + opcionalmente LETRA (A-Z)
+- **TERMINAL_1:** Ponto de origem (geralmente em maiúsculas)
+- **TERMINAL_2:** Ponto de destino (geralmente em maiúsculas)
+
+**Exemplos:**
+
+| Linha | ID | Terminal 1 | Terminal 2 |
+|---|---|---|---|
+| `268 - MACAE - UNAMAR URB` | 268 | MACAE | UNAMAR URB |
+| `468B - QUEIMADOS - PENHA` | 468B | QUEIMADOS | PENHA |
+| `B100 - RIO BONITO - SAQUAREMA` | B100 | RIO BONITO | SAQUAREMA |
+
+**Estratégia de busca:**
+- Forneceu ID completo (ex: "468B") → buscar `filter_value = "468B - ..."`
+- Forneceu apenas número (ex: "468") → buscar `filter_value contém "468"` (pode retornar 468, 468B, 468L, etc.)
+- Forneceu apenas trajeto (ex: "QUEIMADOS - PENHA") → buscar `filter_value contém "QUEIMADOS" E "PENHA"`
+- Nada funcionou → usar `operation="valores_unicos"` com `coluna="Linha"` para listar opções
+
+---
+
+### PADRÃO 2: Metrô
+
+**Formato:** `L<NÚMERO> <SIGLA> - Estação <NOME_ESTAÇÃO> - Metrô`
+
+**Estrutura:**
+- **L<NÚMERO>:** Identificador da linha (L1, L2, L4, etc.)
+- **<SIGLA>:** Abreviação de 3 letras da estação
+- **NOME_ESTAÇÃO:** Nome completo da estação
+
+**Exemplos:**
+
+| Linha | Número | Sigla | Estação |
+|---|---|---|---|
+| `L1 CTR - Estação Central - Metrô` | L1 | CTR | Central |
+| `L2 INH - Estação Inhaúma - Metrô` | L2 | INH | Inhaúma |
+| `L4 NSP - Estação Nossa Senhora da Paz - Metrô` | L4 | NSP | Nossa Senhora da Paz |
+
+**Estratégia de busca:**
+- Forneceu linha (ex: "L1" ou "Linha 1") → buscar `filter_value começa com "L1"`
+- Forneceu estação (ex: "Central") → buscar `filter_value contém "Central" ou sigla "CTR"`
+- Forneceu linha e estação (ex: "Linha 2 Inhaúma") → buscar `filter_value = "L2 INH - Estação Inhaúma - Metrô"`
+- Nada funcionou → usar `operation="valores_unicos"` com `coluna="Linha"` para listar linhas do Metrô
+
+---
+
+### PADRÃO 3: Trem (SuperVia)
+
+**Formato:** `R<NÚMERO><SIGLA> - <NOME_ESTACAO>` ou `R<NÚMERO><SIGLA> - <NOME_ESTACAO> - SUPERVIA`
+
+**Estrutura:**
+- **R<NÚMERO>:** Identificador da linha de trem (R1, R2, R3, etc.)
+- **<SIGLA>:** Abreviação de 3 letras da estação
+- **NOME_ESTACAO:** Nome completo da estação
+
+**Exemplos:**
+
+| Linha | Número | Sigla | Estação | Empresa |
+|---|---|---|---|---|
+| `R1MNA - MARACANÃ` | R1 | MNA | MARACANÃ | - |
+| `R10CZ - ESTACAO OSWALDO CRUZ - SUPERVIA` | R10 | CZ | OSWALDO CRUZ | SUPERVIA |
+| `R3ATA - ESTACAO ANCHIETA - SUPERVIA` | R3 | ATA | ANCHIETA | SUPERVIA |
+
+**Estratégia de busca:**
+- Forneceu linha (ex: "R1" ou "Linha R1") → buscar `filter_value começa com "R1"`
+- Forneceu estação (ex: "Anchieta") → buscar `filter_value contém "ANCHIETA" ou sigla "ATA"`
+- Forneceu linha e estação (ex: "R3 Anchieta") → buscar `filter_value = "R3ATA - ESTACAO ANCHIETA - SUPERVIA"`
+- Nada funcionou → usar `operation="valores_unicos"` com `coluna="Linha"` para listar linhas de trem
 
 ---
 
@@ -130,16 +227,34 @@ Transações com hora 00:00 são **MADRUGADA (turno 3)**, NÃO noite.
 
 Dados de bilhetagem eletrônica: validações, embarques pagos, movimento de passageiros.
 
-### Quando usar
-
+**Usar quando:**
+- Perguntas genéricas sobre transporte (sem mencionar gratuidade ou BU)
 - "bilhetagem", "validação", "embarque", "passageiros"
-- Perguntas sobre volume total de passageiros (pagos + gratuitos)
+- Volume total de passageiros (pagos + gratuitos)
 - Dados de movimento geral do transporte
 
 ### Para descobrir colunas e arquivos
 
 1. Usar `listar_recursos_da_base(package_id="setram_sbe")`
-2. Depois `preview` para entender a estrutura
+2. Depois `operation="preview"` para entender a estrutura
+
+---
+
+## BASE: SETRAM_SBU (Bilhete Único)
+
+**package_id:** `"setram_sbu"`
+
+Dados de Bilhete Único: integração entre modais, cartões BU, subsídios governamentais.
+
+**Usar quando:**
+- Usuário menciona explicitamente "Bilhete Único", "BU", "SBU"
+- Perguntas sobre integração entre transportes
+- Dados de cartões BU
+
+### Para descobrir colunas e arquivos
+
+1. Usar `listar_recursos_da_base(package_id="setram_sbu")`
+2. Depois `operation="preview"` para entender a estrutura
 
 ---
 
@@ -179,10 +294,9 @@ Histórico de tarifas do MetrôRio desde 1998.
 
 Tarifas e dados da concessionária CCR Barcas (travessias aquaviárias no RJ).
 
- Baixar **APENAS .xlsx/.xls** (ignorar .pdf). Os dados são espelhados, ou seja, o mesmo conteúdo está em ambos os tipos.
+Baixar **APENAS .xlsx/.xls** (ignorar .pdf).
 
-### Quando usar
-
+**Usar quando:**
 - "tarifa da barca", "preço da barca", "passagem da barca"
 - "quanto custa a barca", "CCR Barcas"
 
@@ -190,7 +304,7 @@ Tarifas e dados da concessionária CCR Barcas (travessias aquaviárias no RJ).
 
 1. Usar `listar_recursos_da_base(package_id="concessionaria-ccr-barcas")`
 2. Nos resultados, escolher o arquivo `.xlsx` (não o `.pdf`)
-3. Depois `preview` para entender a estrutura
+3. Depois `operation="preview"` para entender a estrutura
 
 ---
 
@@ -204,8 +318,7 @@ Tarifas e dados da concessionária SuperVia (trens urbanos/metropolitanos do RJ)
 
 Baixar **APENAS .xlsx/.xls** (ignorar .pdf).
 
-### Quando usar
-
+**Usar quando:**
 - "tarifa do trem", "preço do trem", "passagem do trem"
 - "quanto custa o trem", "SuperVia"
 
@@ -213,13 +326,13 @@ Baixar **APENAS .xlsx/.xls** (ignorar .pdf).
 
 1. Usar `listar_recursos_da_base(package_id="concessionaria-supervia")`
 2. Nos resultados, escolher o arquivo `.xlsx` (não o `.pdf`)
-3. Depois `preview` para entender a estrutura
+3. Depois `operation="preview"` para entender a estrutura
 
 ---
 
-# INSTRUÇÃO CRÍTICA: EXTRAÇÃO DE PARÂMETROS NAS BASES DE DADOS
+## INSTRUÇÃO CRÍTICA: EXTRAÇÃO DE PARÂMETROS NAS BASES DE DADOS
 
-## OPERAÇÃO: valores_unicos
+### OPERAÇÃO: valores_unicos
 
 Quando o usuário mencionar qualquer uma dessas frases:
 - "valores únicos da coluna X"
@@ -230,12 +343,12 @@ Quando o usuário mencionar qualquer uma dessas frases:
 
 **VOCÊ DEVE OBRIGATORIAMENTE:**
 
-1. **IDENTIFICAR** qual coluna o usuário está pedindo (está no texto dele ou use a OPERACAO `mostrar_colunas` para inferir)
+1. **IDENTIFICAR** qual coluna o usuário está pedindo (está no texto dele ou use a OPERACAO `preview` para inferir)
 2. **EXTRAIR** o nome exato da coluna que está sendo pedida
 3. **MAPEAR** para o parâmetro: `"coluna": "<NOME EXATO DA COLUNA>"`
-4. **NUNCA DEIXAR VAZIO** — se o usuário não disser qual coluna, PERGUNTE. Se não encontrar, CITE AS OPÇÕES COM A OPERACAO `mostrar_colunas`
+4. **NUNCA DEIXAR VAZIO** — se o usuário não disser qual coluna, PERGUNTE. Se não encontrar, CITE AS OPÇÕES COM A OPERACAO `preview`
 
-### MAPEAMENTO AUTOMÁTICO DO PREENCHIMENTO DO PARÂMETRO "COLUNA"
+#### MAPEAMENTO AUTOMÁTICO DO PREENCHIMENTO DO PARÂMETRO "COLUNA"
 
 Quando o usuário disser "leia valores da coluna...", extraia o nome citado em seguida:
 
@@ -246,7 +359,7 @@ Quando o usuário disser "leia valores da coluna...", extraia o nome citado em s
 | "valores únicos da coluna Descrição da Aplicação" | `"coluna": "Descrição da Aplicação"` |
 | "leia Linha" | `"coluna": "Linha"` |
 
-### EXEMPLO PASSO A PASSO
+#### EXEMPLO PASSO A PASSO
 
 **Usuário:** "Use a operação de valores_unicos e leia a coluna "Linha""
 
@@ -268,9 +381,7 @@ Quando o usuário disser "leia valores da coluna...", extraia o nome citado em s
 }
 ```
 
----
-
-## VERIFICAÇÃO
+### Verificação
 
 Antes de chamar qualquer ferramenta, SEMPRE log:
 ```
@@ -282,9 +393,9 @@ Se NÃO conseguir extrair, PERGUNTE ao usuário qual coluna deseja.
 
 ---
 
-## OPERAÇÃO: agrupar_valores_unicos
+### OPERAÇÃO: agrupar_valores_unicos
 
-### Quando usar
+#### Quando usar
 
 Quando o usuário quer saber a **contagem de cada valor único** em uma coluna, especialmente com grandes volumes (como encontramos em arquivos do tipo diário)
 
@@ -296,7 +407,7 @@ Quando o usuário quer saber a **contagem de cada valor único** em uma coluna, 
 | "Conte cada operadora" | `agrupar_valores_unicos` |
 | "Quantas ocorrências por tipo de gratuidade?" | `agrupar_valores_unicos` |
 
-### Diferença com outras operações
+#### Diferença com outras operações
 
 | Operação | O que faz | Quando usar |
 |---|---|---|
@@ -304,7 +415,7 @@ Quando o usuário quer saber a **contagem de cada valor único** em uma coluna, 
 | `agrupar_e_somar` | Filtra por 1 valor E soma coluna numérica | "Qual o total de Idosos de ônibus?" |
 | `agrupar_valores_unicos` | Agrupa TODOS os valores únicos E conta ocorrências | "Quais foram as linhas que tiveram mais passageiros?" |
 
-### Como funciona a operação agrupar_valores_unicos
+#### Como funciona
 
 1. Pega a coluna alvo (ex: "LINHA")
 2. Extrai todos os valores únicos
@@ -312,7 +423,7 @@ Quando o usuário quer saber a **contagem de cada valor único** em uma coluna, 
 4. Ordena descendente
 5. Retorna Top 10 + ranking completo
 
-### Exemplo prático (Dados MOCK)
+#### Exemplo prático (Dados MOCK)
 
 **Dados brutos:**
 ```
@@ -325,27 +436,10 @@ LINHA                           TRANSACAO
 100 - CENTRAL                   1
 ```
 
-# Entendendo tipos de arquivos: DADOS CONSOLIDADOS x DADOS PUBLICO 
-
-## Comparação entre TRANSACAO_XXX_PUBLICO e TRANSACAO_XXX_CONSOLIDADO
-
-Onde XXXX se refere:
-
-1. Se XXXX = GRATUIDADE: Dados de gratuidade, passagens gratuitas
-2. Se XXXX = BE: Dados de bilhetagem eletrônica intermunicipal. 
-3. Se XXXX = BU: Dados de bilhete único intermunicipal e tarifa social
-
-*OBS: A diferença entre Bilhete Único e Bilhetagem Eletrônica é:*
-
-- Bilhete Único é um benefício tarifário do Governo para permitir integração entre diferentes meios de transporte pagando uma tarifa única ou com desconto. 
-
-- Bilhetagem eletrônica é uma tecnologia de pagamento em cartões ou validadores para registrar a tarifa e aplicar as regras de integração nos meios de transporte.
-
-| Aspecto | TRANSACAO_XXXX_PUBLICO | TRANSACAO_XXXX_CONSOLIDADO |
-|---|---|---|
-| **Objetivo** | Dados brutos diários com máximo detalhe de cada transação | Dados agregados mensalmente por dimensões principais |
-| **Granularidade** | Nível de transação individual, cada linha representa 1 viagem | Nível de agregação no mês entre modal (meio de transporte) e total de transações em cada linha. |
-| **Frequência** | Diária, um arquivo gerado por dia | Mensal, um arquivo gerado a cada mês|
-| **Informações obtidas das colunas** | Data da Transação é o momento que a passagem foi efetuada; Descrição da aplicação é a categoria do benefício; Linha é o identificador único do transporte utilizado, geralmente representado por número, sigla ou definição de trajeto do transporte; Operadora é a empresa responsável pelo transporte; O número do cartão refere-se ao identificador do cartão usado pelo usuário; Número do carro é identificador de estação do veículo (Não confundir com Linha!); Se XXXX = **BU** ou **BE**, considerar VL LINHA como o valor oficial em R$ (reais) da linha de transporte, VL TRANS como o valor em R$ (reais) que foi de fato descontado do usuário, VL SUBSIDIO como o valor do subsídio pelo Governo, Quantidade Integrações como o total de integrações realizadas na mesma viagem | Ano e Mês que a transação ocorreu; Modal Operadora (meio de transporte que foi usado); Tipo de gratuidade se XXXX = **GRATUIDADE** (categoria do benefício); Quantidade de Transações no mês; Se XXXX = **BU** ou **BE**, considerar também VL_LINHA (Valor total em R$ das linhas dos modais de transporte), VL_SUBSIDIO (Valor total do subsídio) e VL_TRANS (Valor total descontado dos cartões do usuários ao realizar as transações) |
-| **Tamanho** | Pode conter centenas de milhares de linhas | Pode contar poucas dezenas de linhas |
-| **Período Disponível** | Verificar **SEMPRE** se o período pedido pelo usuário está disponível! **NUNCA** inferir que algum dado não existe sem consultar antes! | Verificar **SEMPRE** se o período pedido pelo usuário está disponível! **NUNCA** inferir que algum dado não existe sem consultar antes! |
+**Resultado da operação `agrupar_valores_unicos` com coluna="LINHA":**
+```
+430M - CABUÇU X NITERÓI: 3 ocorrências
+422 - COSME VELHO: 1 ocorrência
+612D - NITEROI X CATETE: 1 ocorrência
+100 - CENTRAL: 1 ocorrência
+```
