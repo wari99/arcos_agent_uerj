@@ -116,4 +116,6 @@
 2. Verificar `total_recursos_na_base`
 3. Se total > 0, baixar e analisar
 4. NÃO assumir que não existe sem verificar
+
 **A verificação é obrigatória.**
+
