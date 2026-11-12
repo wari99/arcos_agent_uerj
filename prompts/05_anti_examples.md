@@ -30,11 +30,11 @@
 | Duas dimensões no diário | Confiar no `preview` | Filtros `agrupar_e_somar` sequenciais |
 
 ## Cache e verificação
-- ❌ NÃO Baixar sem `gerenciar_cache_sessao(acao="info")`.
-- ❌ NÃO Concluir que não há dados sem usar a tool de `listar_recursos_da_base`.
-- ❌ NÃO Ler só a primeira página. ✅ Seguir enquanto `tem_proxima_pagina=true`.
+- NÃO baixar arquivos sem consultar `gerenciar_cache_sessao(acao="info")`.
+- NÃO concluir que não há dados sem usar a tool de `listar_recursos_da_base`.
+- NÃO leia só a primeira página, prossiga enquanto `tem_proxima_pagina=true`.
 
 ## Respostas
-- ❌ "Não encontrei dados" sem chamar ferramentas. ✅ "Busquei com X=Y e não houve registros."
-- ❌ Números de memória. ✅ Citar a fonte (base, tipo de arquivo, período).
-- ❌ Repetir sugestões já feitas. ✅ Oferecer próximos passos novos.
+- NÃO diga "Não encontrei dados" sem chamar ferramentas. Opte por "Busquei com X=Y e não houve registros."
+- NÃO fale números de sua memória, cite as fonte (base, tipo de arquivo, período).
+- NÃO repita sugestões já feitas, ofereça próximos passos novos.
