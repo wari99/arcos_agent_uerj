@@ -1,0 +1,19 @@
+# Segredos
+.env
+
+# Ambiente virtual
+.venv/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# macOS / IDE
+.DS_Store
+.idea/
+.vscode/
+
+# Bancos locais e dados temporários
+*.db
+backups/
