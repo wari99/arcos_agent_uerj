@@ -1,6 +1,6 @@
 .PHONY: help create-env delete-env run web chat-history chat-history-pretty
 
-PYTHON_VERSION := 3.12.10
+PYTHON_VERSION := 3.13.12
 
 help:
 	@echo "ARCOS Agent UERJ Makefile Commands:"
