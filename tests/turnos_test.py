@@ -1,15 +1,13 @@
 import sys
 
 """
-Nome: Teste de turnos
+Teste de turnos
 
-Descrição: 
-    Arquivo para testar a separação de turnos com horários específicos, incluindo casos críticos,
-    que são os horários de transição entre turnos.
+Arquivo para testar a separação de turnos com horários específicos, incluindo casos críticos, que são os horários de transição entre turnos.
 
-    Passando via linha de comando é possível testar um horário custom, por exemplo:
-        > python3 turnos_test.py 0403 -> Testará filtro de turno para o horário 04:03
-        > python3 turnos_test.py 1111 -> Testará filtro de turno para o horário 11:11
+Passando via linha de comando é possível testar um horário custom, por exemplo:
+    > python3 turnos_test.py 0403 -> Testará filtro de turno para o horário 04:03
+    > python3 turnos_test.py 1111 -> Testará filtro de turno para o horário 11:11
 
 Objetivo: Garantir que a função de separação de turnos esteja funcionando corretamente para todos os horários possíveis, como foco os pertencentes aos limites.
 """
@@ -44,7 +42,6 @@ def determinar_faixa_horaria(hora: int, minuto: int = 0) -> int:
 
 NOMES_TURNOS = ["Madrugada", "Manhã", "Tarde", "Noite"]
 
-
 def testar_horario_custom(horario_str: str):                        
     """                                                                   
     Testa um horário específico fornecido como parâmetro                 
@@ -52,7 +49,7 @@ def testar_horario_custom(horario_str: str):
     Parâmetro: horario_str no formato HHMM (ex: "0403", "1530", "2359") 
     """                                                                   
     if len(horario_str) != 4 or not horario_str.isdigit():              
-        print(f"❌ Formato inválido: '{horario_str}'")                    
+        print(f"Formato inválido: '{horario_str}'")                    
         print("   Use formato HHMM (ex: 0403, 1530, 2359)")              
         sys.exit(1)                                                       
                                                                           
@@ -66,7 +63,7 @@ def testar_horario_custom(horario_str: str):
             raise ValueError(f"Minuto deve estar entre 00 e 59, obteve: {minuto}") 
                                                                           
     except ValueError as e:                                              
-        print(f"❌ Erro ao processar horário: {e}")                       
+        print(f"Erro ao processar horário: {e}")                       
         sys.exit(1)
     
     turno_obtido = determinar_faixa_horaria(hora, minuto)
@@ -136,7 +133,7 @@ for hora, minuto, horario_str, turno_esperado, nome_esperado, descricao in CASOS
     turno_obtido = determinar_faixa_horaria(hora, minuto)
     nome_obtido = NOMES_TURNOS[turno_obtido]
     
-    status = "✅" if turno_obtido == turno_esperado else "❌ ERRO"
+    status = "✅" if turno_obtido == turno_esperado else "ERRO"
     
     print(f"{horario_str:>8} | {nome_obtido:^12} | {nome_esperado:^12} | {status:^6} | {descricao}")
     
@@ -151,7 +148,7 @@ for hora, minuto, horario_str, turno_esperado, nome_esperado, descricao in CASOS
 if erros:
     print(f"\n🚨 {len(erros)} ERRO(S) ENCONTRADO(S):\n")
     for i, erro in enumerate(erros, 1):
-        print(f"{i}. ❌ {erro['horario']}")
+        print(f"{i}. {erro['horario']}")
         print(f"   Obtém:   '{erro['obtido']}'")
         print(f"   Deveria: '{erro['esperado']}'")
         print(f"   Motivo:  {erro['descricao']}\n")

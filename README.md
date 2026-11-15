@@ -1,31 +1,31 @@
 <h1 align="center">  ARCOS-RJ 
 
 ![GitHub Status](https://img.shields.io/badge/Status-Work%20In%20Progress-yellow)
-![Python](https://img.shields.io/badge/python-=3.12.10-blue?logo=python)
-![Langchain](https://img.shields.io/badge/LangChain-ffffff?logo=langchain&logoColor=green)
-![Google Gemini](https://img.shields.io/badge/Google%20Gemini-886FBF?logo=googlegemini&logoColor=fff)
+![Python](https://img.shields.io/badge/python-=3.13.12-blue?logo=python)
+![Langchain](https://img.shields.io/badge/LangChain-1.0.7-ffffff?logo=langchain&logoColor=green)
+![Google Gemini](https://img.shields.io/badge/Google%20Gemini-3.8.Flash-886FBF?logo=googlegemini&logoColor=fff)
 
 ---
 
 ## Sobre o Projeto
 
-**ARCOS-RJ** é um agente de IA conversacional que está em desenvolvimento como trabalho de conclusão de curso na disciplina de Projeto Final do bacharelado em Ciência da Computação na Universidade do Estado do Rio de Janeiro (UERJ), sob orientação da Profa. Dra. Karla Figueiredo e co-orientação de Me. Fabio Cardoso.
+**ARCOS-RJ** é um agente de IA conversacional que está em desenvolvimento como trabalho de conclusão de curso na disciplina de Projeto Final do bacharelado em Ciência da Computação na Universidade do Estado do Rio de Janeiro (UERJ).
 
-O sistema funciona como um assistente inteligente que facilita o acesso e análise de dados públicos do Rio de Janeiro, abstraindo a complexidade da navegação em plataformas de dados abertos através de uma interface conversacional.
+O sistema é um assistente conversacional que facilita o acesso e análise de dados públicos do Rio de Janeiro, abstraindo a complexidade da navegação da plataforma de dados abertos.
 
 ---
 
 ## Motivação 
 
-A plataforma [Dados Abertos do RJ](https://dadosabertos.rj.gov.br/) contém um extenso acervo de informações públicas. Os usuários da plataforma enfrentam alguns desafios:
+A plataforma [Dados Abertos do RJ](https://dadosabertos.rj.gov.br/) contém um extenso acervo de informações públicas. Os usuários da plataforma podem encontrar alguns desafios ao navegar entre os grupos de arquivos:
 
-- **Segmentação dos dados**: centenas de bases de dados espalhadas pelo acervo
+- **Segmentação dos dados**: grande quantidade de bases de dados espalhadas pela plataforma
 - **Navegação é confusa**: usuários que não conhecem a plataforma não são capazes de encontrar informações desejadas com facilidade
-- **Volume de arquivos**: não há categorização clara dos recursos armazenados
+- **Volume de arquivos**: não há clareza na categorização e descrição dos recursos armazenados
 - **Formatos dos arquivos**: diferentes formatos (CSV, XLSX, ZIP, PDF) exigem processamento manual
-- **Alta complexidade em análises**: é necessário realizar download dos arquivos para poder visualizar-los. Para fazer análises simples é necessário conhecer ferramentas que manipulem planilhas. 
+- **Alta complexidade em análises**: é necessário realizar download dos arquivos e descompactá-los para poder visualizar-los. Para fazer análises simples é necessário conhecer ferramentas que manipulem planilhas. 
 
-### Solução sugerida:
+### Solução desenvolvida:
 
 ARCOS-RJ se integra à **API de Dados Abertos do RJ**, abstraindo a complexidade técnica da navegação e análise. O usuário pode fazer perguntas em linguagem natural e o agente de IA pode:
 
@@ -33,24 +33,25 @@ ARCOS-RJ se integra à **API de Dados Abertos do RJ**, abstraindo a complexidade
 - **Baixar** e processar arquivos em múltiplos formatos
 - **Analisar** os dados conforme solicitado
 - **Apresentar** resultados de forma acessível
+- **Incentivar** extração de informações extras nos arquivos
 
 Dessa forma, tanto um usuário leigo quanto um usuário mais experiente e conhecedor da plataforma de Dados Abertos é capaz de navegar e obter informações com o uso de linguagem natural.
 
 ---
 
-## Funcionalidades Disponíveis (WIP)
+## Funcionalidades  
 
-### Ferramentas/Tools do Agente ARCOS
+### Principais Ferramentas / Tools do Agente
 
-| Ferramenta/Tool | Descrição | Exemplo de Uso |
-|-----------|-----------|-----------------|
-| **listar_bases** | Descobre todas as bases disponíveis | "Quais bases de dados existem?" |
-| **buscar_infos_base** | Encontra bases por nome ou descrição | "O que é a base de dados X?" |
-| **listar_recursos_da_base** | Lista arquivos disponíveis numa base específica | "Quais arquivos existem de janeiro de 2025?" |
-| **baixar_arquivo_dados** | Baixa e processa arquivos (CSV, XLSX, ZIP) | Acionada automaticamente quando necessário ler conteúdo dos arquivos |
-| **analisar_dados_arquivo** | Executa análises e operações sobre dados | "Quantos idosos andaram de ônibus no dia 5 de Janeiro?"    "Qual tipo de gratuidade usou mais os trens em Dezembro?" |
-| **gerar_graficos** | Cria visualizações dos dados | "Gostaria de um gráfico por transações que ocorreram no mês passado" |
-| **gerenciar_cache_sessao** | Gerencia cache local de arquivos | "Exclua todos os arquivos baixados nessa sessão" "Mostre os arquivos que foram baixados nessa conversa" |
+| Ferramenta/Tool | Capacidade |
+|-----------|-----------|
+| **listar_bases** | Descobre as bases disponíveis no portal |
+| **buscar_infos_base** | Encontra bases por nome ou descrição | 
+| **listar_recursos_da_base** | Lista arquivos disponíveis numa base específica | 
+| **baixar_arquivo_dados** | Baixa e processa arquivos (CSV, XLSX, ZIP) |
+| **analisar_dados_arquivo** | Executa análises e operações sobre dados |
+| **gerar_graficos** | Cria visualizações dos dados |
+| **gerenciar_cache_sessao** | Gerencia cache local de arquivos |
 
 ---
 
@@ -121,102 +122,110 @@ Dessa forma, tanto um usuário leigo quanto um usuário mais experiente e conhec
 
 ## Como Usar
 
-### Instalação
+> [!IMPORTANT]  
+> O agente foi desenvolvido em ambiente MacOS. Portanto, algumas ferramentas do projeto podem depender de compatibilidade com Unix.
+> No Windows, o uso do *make* pelo PowerShell pode apresentar problemas nas configurações de Path. Dê preferência para o WSL para utilizar os comandos abaixo.
+
+### I. Pré-requisitos
+
+- [uv](https://docs.astral.sh/uv/getting-started/installation/)
+- [make](https://www.gnu.org/software/make/) 
+- LLM Model: chave da **Gemini API** *ou* projeto no **Google Cloud (Vertex AI)** *ou* **Ollama** rodando localmente. Para outras LLMs, modificar em model.py
+
+### II. Clonar o repositório
 
 ```bash
-[Work In Progress]
+git clone <url-do-repositorio>
 ```
 
-### Executar o Agente
+### III. Criar o ambiente e instalar as dependências
 
 ```bash
-[Work In Progress]
+make create-env
 ```
+
+Cria o `.venv` com o Python 3.13.12 e instala as versões definidas em `pyproject.toml` e `uv.lock`. Ative o ambiente com:
+
+```bash
+source .venv/bin/activate
+```
+
+### IV. Configurar as variáveis de ambiente
+
+```bash
+cp .env.example .env
+```
+
+Abra o `.env` e preencha:
+
+| Variável | Uso |
+|---|---|
+| `ROOT_AGENT_MODEL` | Nome do modelo. Se contiver `gemini`, usa Gemini; senão, usa Ollama |
+| `GEMINI_API_KEY` | Chave da Gemini API. Se ficar vazia, usa Vertex AI |
+| `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION` | Só para Vertex AI |
+| `OLLAMA_BASE_URL` | Somente para Ollama (padrão `http://localhost:11434`) |
+| `URL_*` | Endpoints da API de Dados Abertos do RJ. Não modificar.  |
+
+
+### V. Executar o Agente
+
+Chat no terminal (digite `/sair` para encerrar):
+
+```bash
+make run
+```
+
+Interface web (Streamlit):
+
+```bash
+make web
+```
+
+### Outros comandos
+
+| Comando | O que faz |
+|---|---|
+| `make chat-history` | Mostra o histórico de conversas salvo no banco |
+| `make f-chat-history` | Mostra o histórico formatado |
+| `make delete-env` | Apaga o `.venv` |
 
 ---
 
-##  Estrutura do Projeto
-
-```
-arcos-rj/
-├── agent.py                    # Ponto de entrada principal
-├── prompt.py                   # Instruções do agente 
-├── tools/                      # Ferramentas disponíveis
-│   ├── listar_bases.py
-│   ├── buscar_infos_base.py
-│   ├── listar_recursos_da_base.py
-│   ├── baixar_arquivo_dados.py
-│   ├── analisar_dados_arquivo.py
-│   ├── gerar_graficos.py
-│   ├── gerenciar_cache_sessao.py
-│   └── commons/                 
-│       ├── _operacoes_basicas.py
-│       ├── _operacoes_concessionarias.py
-│       ├── _operacoes_filtros.py
-│       ├── _operacoes_turnos.py
-│       ├── settings.py         # Constantes, configurações
-│       └── utils.py            # Processamentos, encondings, detecções
-
-├── tests/                      # Testes de funcionalidades (WIP)
-├── requirements.txt
-├── .env                        
-└── README.md                   
-```
-
----
-
-## 🔐 API Links
+## 🔐 API - endpoints do Portal de Dados Abertos
 
 ```env
 # .env: 
 
-URL_LISTAR_BASES=https://dadosabertos.rj.gov.br/api/3/action/package_list?all_fields=true
-URL_BUSCAR_BASE=https://dadosabertos.rj.gov.br/api/3/action/package_search?q={}&limit=10
+URL_LISTAR_BASES=https://dadosabertos.rj.gov.br/api/3/action/package_list
+URL_BUSCAR_BASE=https://dadosabertos.rj.gov.br/api/3/action/package_search?q={}
 URL_CONSULTAR_PROCESSAR_ARQUIVO=https://dadosabertos.rj.gov.br/api/3/action/package_show?id={}
 ```
 
 ---
 
-## Dados (WIP)
+## Dados mais apoiados pelo ARCOS
 
-### Bases Principais - Com mais recursos testados durante o desenvolvimento do Agente (WIP)
+### Bases Principais - Maior quantidade de arquivos padronizados e recursos testados durante o desenvolvimento
 
 1. **setram_sgr** - Gratuidades no Transporte
-   - Dados consolidados mensais
-   - Dados detalhados diários
+   - Dados mensais
+   - Dados diários
 
 2. **setram_sbe** - Bilhetagem Eletrônica
    - Validações e embarques
    - Volume de passageiros
 
+2. **setram_sbu** - Bilhete Único
+   - Dados mensais
+   - Dados diários
+
 3. **concessionaria-metrorio** - Tarifas do Metrô
-   - Histórico de preços desde 1998
-   - Consultas de preço por período
+
 4. **concessionaria-ccr-barcas** - Tarifas das Barcas
+
 5. **concessionaria-supervia** - Tarifas dos Trens
 
 ---
-
-### Linguagem, ferramentas, frameworks, bibliotecas
-
-- **Python 3.13.12**
-- **LangChain 1.0.7** - Framework de criação do Agente
-- **Google Vertex AI** - Gemini 2.5 Flash
-- **LangGraph** - Orquestração  (WIP)
-- **Pandas, NumPy** - Processamento de dados
-- **Matplotlib** - Geração de gráficos
-- **Requests** -  requisição HTTP aos Dados Abertos
-
----
-
-## Sobre o ARCOS
-
- Status: **Em Desenvolvimento**
-
-Este projeto está sob orientação de:
-
-- **Prof. Dra. Karla Figueiredo** (Orientadora)
-- **Me. Fabio Cardoso** (Co-orientador)
 
 **Departamento de Ciência da Computação**  
 **Instituto de Matemática e Estatística (IME)**  

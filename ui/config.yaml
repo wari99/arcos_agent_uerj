@@ -1,0 +1,37 @@
+streamlit:
+  page_title: "ARCOS-RJ Chat"
+  page_icon: "random"
+  layout: "wide"
+
+theme:
+  background_color: "#0E1117"
+  text_color: "#FAFAFA"
+  input_bg: "#1E1E1E"
+  borders:
+    user: "#4FC3F7"
+    agent: "#81C784"
+    error: "#E57373"
+
+messages:
+  session_ended: "Sessão encerrada. Digite '/reiniciar' para começar uma nova."
+  goodbye: "Limpando arquivos temporários..."
+  cleanup_success: "{mensagem}"
+  cleanup_error: "Erro na limpeza: {erro}"
+  processing: "Processando..."
+  input_placeholder: "Digite..."
+  button_label: "Enviar"
+  you: "Você"
+  arcos: "ARCOS"
+  error_label: "Erro"
+
+commands:
+  exit:
+    trigger: "/sair"
+    description: "Encerrar sessão"
+  restart:
+    trigger: "/reiniciar"
+    description: "Reiniciar sessão"
+
+paths:
+  temp_folder: "./temp"
+  db: "./db/sessions.db"
