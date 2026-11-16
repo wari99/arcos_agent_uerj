@@ -2,6 +2,7 @@
 LIMITE_PASSOS = 40
 
 import logging
+import re
 import time
 from langchain_core.messages import HumanMessage
 from langgraph.errors import GraphRecursionError
@@ -14,6 +15,18 @@ def _ferramentas_chamadas(mensagens) -> list:
         if getattr(m, "type", None) == "ai"
         for tc in (getattr(m, "tool_calls", None) or [])
     ]
+
+_CAMINHO_PNG = re.compile(r"""[^\s'"]+\.png""")
+
+def _graficos_gerados(mensagens) -> list:
+    """Caminhos .png devolvidos pelas ferramentas (o texto final do subagente costuma omiti-los)."""
+    caminhos = []
+    for m in mensagens:
+        if getattr(m, "type", None) == "tool":
+            for c in _CAMINHO_PNG.findall(str(m.content)):
+                if c.startswith("/") and c not in caminhos:  # só caminhos absolutos (ignora o nome solto do arquivo)
+                    caminhos.append(c)
+    return caminhos
 
 def delegar(subagente, pedido: str, logger: logging.Logger) -> str:
     """Invoca o subagente e devolve só o texto final (nunca vazio)."""
@@ -34,6 +47,11 @@ def delegar(subagente, pedido: str, logger: logging.Logger) -> str:
     except Exception as e:
         logger.error(f"falhou após {time.perf_counter() - inicio:.1f}s: {e}")
         return f"Erro ao executar a consulta: {e}"
+
+    # a interface só exibe o gráfico se o caminho do .png estiver no texto final; o subagente enxuto o omite
+    for caminho in _graficos_gerados(resultado["messages"]):
+        if caminho not in texto:
+            texto += f"\n\nGráfico gerado: {caminho}"
 
     chamadas = _ferramentas_chamadas(resultado["messages"])
     logger.info(

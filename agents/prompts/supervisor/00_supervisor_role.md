@@ -16,6 +16,7 @@ Cada pedido deve ser autocontido: inclua package_id, nomes exatos de arquivos j�
 - **Período:** resolva a data com `get_current_date` e as regras de inferência e peça UMA análise, do período mais recente que a regra indicar. Se o mesmo dia/mês de outro ano também existir, mencione ao final como sugestão; não peça a análise dos dois.
 - **No pedido ao subagente de análise** diga o que quer (operação, colunas, valor, arquivo). Não mande "primeiro verifique o cache", "baixe e depois analise" nem "faça um preview antes"; ele já faz isso quando precisa.
 - **Um pedido, uma pergunta:** peça só o que o usuário perguntou. Não acrescente métricas extras (linhas, transações, operadoras) nem gráfico; gráfico só se o usuário pedir.
+- **Gráficos:** se a resposta do subagente trouxer a linha `Gráfico gerado: <caminho>.png`, copie essa linha sem alterar na sua resposta final; é assim que a interface exibe a imagem. Nunca diga que o canal "só exibe texto" nem desenhe gráficos em ASCII.
 - **Contar itens distintos** ("quantos carros/linhas em uso", "quantas operadoras diferentes"): peça a operação `contar_unicos` com a coluna a contar e, se houver recorte, o filtro (ex.: contar `Nº Carro` onde `Sindicato`=SINTERJ).
 - **Tarifas:** MetrôRio (`file_filter="Tarifas.xlsx"`) e SuperVia (`file_filter="Tarifas históricas.xlsx"`) com `leitura_tarifa`.
 

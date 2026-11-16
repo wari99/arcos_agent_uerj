@@ -31,16 +31,53 @@ st.set_page_config(
 )
 
 # Aplicar CSS dinamicamente
-theme = config["theme"]
+# o toggle usa key (id estável) e fica desabilitado enquanto o agente responde: mexer num widget durante a
+# execução faz o Streamlit reiniciar o script e interrompe a resposta
+with st.sidebar:
+    modo_claro = st.toggle(
+        "Modo Claro",
+        key="modo_claro",
+        disabled=bool(st.session_state.get("pending_user_input")),
+    )
+st.session_state.theme_mode = "light" if modo_claro else "dark"
+
+theme = config["theme"][st.session_state.theme_mode]
 css_style = f"""
 <style>
-html, body, [class*="css"]  {{
+html, body, [class*="css"], .stApp, [data-testid="stHeader"], [data-testid="stSidebar"], [data-testid="stBottom"] > div {{
     background-color: {theme["background_color"]} !important;
     color: {theme["text_color"]} !important;
 }}
 .stTextInput input {{
     background-color: {theme["input_bg"]} !important;
-    color: white !important;
+    color: {theme["input_text"]} !important;
+}}
+[data-testid="stChatInput"] textarea, .stApp p, .stApp h1, .stApp label, .chat-message, .chat-message b {{
+    color: {theme["text_color"]} !important;
+}}
+.stButton > button, [data-testid="stFormSubmitButton"] > button {{
+    background-color: {theme["button_bg"]} !important;
+    color: {theme["button_text"]} !important;
+    border: 1px solid {theme["borders"]["user"]} !important;
+}}
+.stButton > button p, [data-testid="stFormSubmitButton"] > button p {{
+    color: {theme["button_text"]} !important;
+}}
+[data-testid="stStatus"], [data-testid="stExpander"] {{
+    background-color: {theme["status_bg"]} !important;
+    border: 1px solid {theme["borders"]["user"]} !important;
+    border-radius: 10px;
+}}
+[data-testid="stStatus"] details, [data-testid="stStatus"] summary,
+[data-testid="stExpander"] details, [data-testid="stExpander"] summary {{
+    background-color: {theme["status_bg"]} !important;
+}}
+[data-testid="stStatus"] *, [data-testid="stExpander"] * {{
+    color: {theme["text_color"]} !important;
+}}
+.stApp code, .stApp pre, [data-testid="stCode"], [data-testid="stCode"] pre {{
+    background-color: {theme["code_bg"]} !important;
+    color: {theme["code_text"]} !important;
 }}
 .chat-message {{
     padding: 1rem;
@@ -197,7 +234,7 @@ if st.session_state.pending_user_input:
 
         def _atualizar_progresso(linhas, atividade, segundos):
             status.update(label=f"{atividade}… ({segundos:.0f}s)")
-            icones = {"rodando": "⏳", "ok": "✅", "erro": "❌"}
+            icones = {"rodando": "⏳", "ok": "☑️", "erro": "⚠️"}
             etapas.markdown("\n".join(
                 f"{'&nbsp;' * 6 * l['nivel']}{icones[l['estado']]} {l['texto']}"
                 + (f" · {l['duracao']:.1f}s" if l["duracao"] is not None else "")

@@ -4,13 +4,34 @@ streamlit:
   layout: "wide"
 
 theme:
-  background_color: "#0E1117"
-  text_color: "#FAFAFA"
-  input_bg: "#1E1E1E"
-  borders:
-    user: "#4FC3F7"
-    agent: "#81C784"
-    error: "#E57373"
+  dark:
+    background_color: "#0E1117"
+    text_color: "#FAFAFA"
+    input_bg: "#1E1E1E"
+    input_text: "#FFFFFF"
+    button_bg: "#1E1E1E"
+    button_text: "#FAFAFA"
+    status_bg: "#1E1E1E"
+    code_bg: "#2B2B2B"
+    code_text: "#FAFAFA"
+    borders:
+      user: "#4FC3F7"
+      agent: "#81C784"
+      error: "#E57373"
+  light:
+    background_color: "#FFFFFF"
+    text_color: "#1F2328"
+    input_bg: "#F0F2F6"
+    input_text: "#1F2328"
+    button_bg: "#0288D1"
+    button_text: "#FFFFFF"
+    status_bg: "#E3F2FD"
+    code_bg: "#E8EAED"
+    code_text: "#1F2328"
+    borders:
+      user: "#0288D1"
+      agent: "#388E3C"
+      error: "#D32F2F"
 
 messages:
   session_ended: "Sessão encerrada. Digite '/reiniciar' para começar uma nova."
