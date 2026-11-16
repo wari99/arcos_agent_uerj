@@ -24,6 +24,7 @@ import unicodedata
 from functools import lru_cache
 from typing import Any, Dict, List, Optional, Tuple
 import pandas as pd
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -54,8 +55,7 @@ def normalizar_texto(texto: str) -> str:
 
 def simplificar_nome_de_coluna(nome) -> str:
     """
-    Deixa só letras minúsculas e números, sem acento, espaço ou pontuação.
-    Serve para comparar nomes de coluna que se parecem.
+    Deixa só letras minúsculas e números, sem acento, espaço ou pontuação. Serve para comparar nomes de coluna que se parecem.
 
     Exemplos:
         "Qtd. Transações"  -> "qtdtransacoes"
