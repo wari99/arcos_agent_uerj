@@ -19,14 +19,14 @@ from typing import Any
 
 import pandas as pd
 
-logger = logging.getLogger(__name__)
-
 # regex que casa qualquer caractere que NÃO seja letra minúscula ou número.
 # Usado para limpar nomes de coluna encontrados: "Qtd. Transações" -> "qtdtransacoes"
 _PADRAO_NAO_ALFANUMERICO = re.compile(r"[^a-z0-9]")
 
 # qtd de valores parecidos devolver quando o filtro não acha nada
 LIMITE_SUGESTOES_DE_VALORES = 20
+
+logger = logging.getLogger(__name__)
 
 
 @lru_cache(maxsize=8192)
