@@ -156,3 +156,16 @@ dependencies = [
   "truststore==0.10.5",
   "uuid-utils==0.19.0",
 ]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+ignore = ["BLE001"]
+extend-select = ["I"]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.17.5",
+]

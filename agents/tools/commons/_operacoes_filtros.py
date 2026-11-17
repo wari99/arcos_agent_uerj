@@ -18,7 +18,7 @@ Como ler este arquivo:
 """
 
 import logging
-from typing import Any, Dict, Tuple
+from typing import Any
 
 import pandas as pd
 
@@ -30,13 +30,14 @@ from agents.tools.commons._apoio_colunas import (
 
 logger = logging.getLogger(__name__)
 
-LIMITE_PADRAO_RANKING = 10 # default, retorna top 10
-LIMITE_MAXIMO_RANKING = 100 # limite para preservar o contexto
+LIMITE_PADRAO_RANKING = 10  # default, retorna top 10
+LIMITE_MAXIMO_RANKING = 100  # limite para preservar o contexto
 
 # ============================================================
 # FUNÇÃO DE APOIO: LOG
 # (as funções de coluna e de filtro ficam em _apoio_colunas.py, compartilhadas com as outras operações)
 # ============================================================
+
 
 def _log_inicio(nome_operacao: str, **parametros):
     """
@@ -50,12 +51,10 @@ def _log_inicio(nome_operacao: str, **parametros):
     detalhes = " | ".join(partes)
     logger.info(f"{nome_operacao} | {detalhes}")
 
-def executar_contar_por_valor( # operacao: contar linhas que contem determinado valor
-    df: pd.DataFrame,
-    coluna: str,
-    valor: str,
-    path: str
-) -> Dict[str, Any]:
+
+def executar_contar_por_valor(  # operacao: contar linhas que contem determinado valor
+    df: pd.DataFrame, coluna: str, valor: str, path: str
+) -> dict[str, Any]:
     """
     Conta quantas linhas contêm determinado valor em uma coluna. Busca parcial, sem acento e sem diferenciar maiúsculas.
     Ex: "Idoso", "7001" e "idoso" encontram "7001 - Idoso".
@@ -87,7 +86,9 @@ def executar_contar_por_valor( # operacao: contar linhas que contem determinado 
     total_linhas = len(df_filtrado)
     valores_encontrados = df_filtrado[coluna].unique().tolist()
 
-    logger.info(f"RESULTADO: {total_linhas} linhas encontradas | valores correspondentes: {valores_encontrados}")
+    logger.info(
+        f"RESULTADO: {total_linhas} linhas encontradas | valores correspondentes: {valores_encontrados}"
+    )
 
     return {
         "coluna": coluna,
@@ -98,13 +99,14 @@ def executar_contar_por_valor( # operacao: contar linhas que contem determinado 
         "sucesso": True,
     }
 
-def executar_contar_unicos( # operacao: contar valores unicos em uma coluna
+
+def executar_contar_unicos(  # operacao: contar valores unicos em uma coluna
     df: pd.DataFrame,
     coluna_alvo: str,
     path: str,
-    coluna: str = None,
-    valor: str = None,
-) -> Dict[str, Any]:
+    coluna: str | None = None,
+    valor: str | None = None,
+) -> dict[str, Any]:
     """
     Conta quantos valores DISTINTOS existem em coluna_alvo, opcionalmente só nas linhas em que coluna contém valor (busca parcial, sem acento e sem diferenciar maiúsculas).
 
@@ -119,12 +121,22 @@ def executar_contar_unicos( # operacao: contar valores unicos em uma coluna
         Dict com a quantidade de valores distintos, o total de linhas consideradas e uma amostra dos valores
     """
 
-    _log_inicio("CONTAR_UNICOS", Coluna_alvo=coluna_alvo, Filtro_coluna=coluna, Filtro_valor=valor)
+    _log_inicio(
+        "CONTAR_UNICOS",
+        Coluna_alvo=coluna_alvo,
+        Filtro_coluna=coluna,
+        Filtro_valor=valor,
+    )
 
     if not coluna_alvo:
         return {
             "erro": "Parâmetro 'coluna_alvo' é obrigatório",
-            "exemplo": {"operation": "contar_unicos", "coluna_alvo": "Nº Carro", "coluna": "Sindicato", "valor": "SINTERJ"},
+            "exemplo": {
+                "operation": "contar_unicos",
+                "coluna_alvo": "Nº Carro",
+                "coluna": "Sindicato",
+                "valor": "SINTERJ",
+            },
             "sucesso": False,
         }
 
@@ -186,13 +198,10 @@ def executar_contar_unicos( # operacao: contar valores unicos em uma coluna
 
     return resultado
 
-def executar_agrupar_e_somar( # operacao: filtra por um valor e soma outra coluna numérica
-    df: pd.DataFrame,
-    coluna: str,
-    valor: str,
-    coluna_soma: str,
-    path: str
-) -> Dict[str, Any]:
+
+def executar_agrupar_e_somar(  # operacao: filtra por um valor e soma outra coluna numérica
+    df: pd.DataFrame, coluna: str, valor: str, coluna_soma: str, path: str
+) -> dict[str, Any]:
     """
     Filtra por valor em uma coluna e soma outra coluna numérica. Busca parcial e case-insensitive.
 
@@ -207,7 +216,12 @@ def executar_agrupar_e_somar( # operacao: filtra por um valor e soma outra colun
         Dict com total de linhas, soma e valores encontrados
     """
 
-    _log_inicio("AGRUPAR_E_SOMAR", Filtrar_coluna=coluna, Filtrar_valor=valor, Somar_coluna=coluna_soma)
+    _log_inicio(
+        "AGRUPAR_E_SOMAR",
+        Filtrar_coluna=coluna,
+        Filtrar_valor=valor,
+        Somar_coluna=coluna_soma,
+    )
 
     if not coluna or valor is None:
         logger.error("Parâmetros de filtro faltando")
@@ -228,7 +242,9 @@ def executar_agrupar_e_somar( # operacao: filtra por um valor e soma outra colun
     if erro:
         return erro
 
-    coluna_soma, erro = validar_coluna(df, coluna_soma, "Coluna a somar '{}' não encontrada")
+    coluna_soma, erro = validar_coluna(
+        df, coluna_soma, "Coluna a somar '{}' não encontrada"
+    )
     if erro:
         return erro
 
@@ -236,12 +252,16 @@ def executar_agrupar_e_somar( # operacao: filtra por um valor e soma outra colun
     total_linhas = len(df_filtrado)
     valores_encontrados = df_filtrado[coluna].unique().tolist()
 
-    logger.info(f"Linhas filtradas: {total_linhas} | valores correspondentes: {valores_encontrados}")
+    logger.info(
+        f"Linhas filtradas: {total_linhas} | valores correspondentes: {valores_encontrados}"
+    )
 
     if total_linhas == 0:
         valores_unicos = df[coluna].unique()
         sugestoes = sugerir_valores(valores_unicos, valor)
-        logger.warning(f"NENHUMA linha corresponde ao valor '{valor}'. Valores parecidos: {sugestoes}")
+        logger.warning(
+            f"NENHUMA linha corresponde ao valor '{valor}'. Valores parecidos: {sugestoes}"
+        )
 
         return {
             "coluna": coluna,
@@ -267,7 +287,9 @@ def executar_agrupar_e_somar( # operacao: filtra por um valor e soma outra colun
     logger.info(f"Soma de '{coluna_soma}': {soma_total:,.0f}")
 
     if logger.isEnabledFor(logging.DEBUG):
-        logger.debug(f"Primeiras linhas filtradas:\n{df_filtrado[[coluna, coluna_soma]].head()}")
+        logger.debug(
+            f"Primeiras linhas filtradas:\n{df_filtrado[[coluna, coluna_soma]].head()}"
+        )
 
     return {
         "coluna": coluna,
@@ -280,13 +302,14 @@ def executar_agrupar_e_somar( # operacao: filtra por um valor e soma outra colun
         "sucesso": True,
     }
 
-def executar_agrupar_valores_unicos( # operacao: ranking de quantas vezes cada valor aparece (paginacao com limite e offset)
+
+def executar_agrupar_valores_unicos(  # operacao: ranking de quantas vezes cada valor aparece (paginacao com limite e offset)
     df: pd.DataFrame,
     coluna: str,
-    path: str = None,
+    path: str | None = None,
     limite: int = LIMITE_PADRAO_RANKING,
     offset: int = 0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Conta quantas vezes cada valor único aparece em uma coluna e devolve o ranking paginado. Ideal quando cada transação vale 1 ponto.
 
@@ -314,7 +337,10 @@ def executar_agrupar_valores_unicos( # operacao: ranking de quantas vezes cada v
 
     coluna_fornecida = coluna
     coluna, erro = validar_coluna(
-        df, coluna, "Coluna '{}' não existe neste arquivo", coluna_fornecida=coluna_fornecida
+        df,
+        coluna,
+        "Coluna '{}' não existe neste arquivo",
+        coluna_fornecida=coluna_fornecida,
     )
     if erro:
         return erro
@@ -351,10 +377,18 @@ def executar_agrupar_valores_unicos( # operacao: ranking de quantas vezes cada v
         )
         limite = LIMITE_MAXIMO_RANKING
 
-    _log_inicio("AGRUPAR_VALORES_UNICOS (COUNT)", Coluna_grupo=coluna, Total_registros=len(df), Limite=limite, Offset=offset)
+    _log_inicio(
+        "AGRUPAR_VALORES_UNICOS (COUNT)",
+        Coluna_grupo=coluna,
+        Total_registros=len(df),
+        Limite=limite,
+        Offset=offset,
+    )
 
     contagem_por_valor = df[coluna].value_counts()
-    contagem_ordenada = contagem_por_valor.sort_index().sort_values(ascending=False, kind="stable")
+    contagem_ordenada = contagem_por_valor.sort_index().sort_values(
+        ascending=False, kind="stable"
+    )
     ranking = list(contagem_ordenada.items())
 
     total_grupos = len(ranking)
@@ -368,7 +402,7 @@ def executar_agrupar_valores_unicos( # operacao: ranking de quantas vezes cada v
     else:
         media = 0
 
-    pagina = ranking[offset:offset + limite]
+    pagina = ranking[offset : offset + limite]
 
     itens = []
     posicao = offset + 1
@@ -378,23 +412,31 @@ def executar_agrupar_valores_unicos( # operacao: ranking de quantas vezes cada v
         else:
             percentual = 0
 
-        itens.append({
-            "posicao": posicao,
-            "grupo": grupo,
-            "total": int(total),
-            "percentual": round(percentual, 2),
-        })
+        itens.append(
+            {
+                "posicao": posicao,
+                "grupo": grupo,
+                "total": int(total),
+                "percentual": round(percentual, 2),
+            }
+        )
         posicao += 1
 
     ultima_posicao_da_pagina = offset + len(pagina)
     tem_mais = ultima_posicao_da_pagina < total_grupos
 
     if total_grupos > 0 and offset >= total_grupos:
-        aviso = f"offset={offset} está além do último grupo (total_grupos={total_grupos})"
+        aviso = (
+            f"offset={offset} está além do último grupo (total_grupos={total_grupos})"
+        )
 
-    logger.info(f"{total_grupos} grupos únicos | total de transações: {soma_total:,} | média por grupo: {media:.2f}")
+    logger.info(
+        f"{total_grupos} grupos únicos | total de transações: {soma_total:,} | média por grupo: {media:.2f}"
+    )
     for item in itens:
-        logger.info(f"   {item['posicao']}º - {item['grupo']}: {item['total']:,} ({item['percentual']:.2f}%)")
+        logger.info(
+            f"   {item['posicao']}º - {item['grupo']}: {item['total']:,} ({item['percentual']:.2f}%)"
+        )
 
     if itens:
         posicao_inicial = itens[0]["posicao"]

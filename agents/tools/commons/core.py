@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 logging.getLogger().setLevel(numeric_log_level)
 logger.setLevel(numeric_log_level)
 
+
 def get_logger(nome: str) -> logging.Logger:
     """Logger filho (arcos.<nome>) que herda formato e nível do basicConfig acima."""
     return logging.getLogger(f"arcos.{nome}")

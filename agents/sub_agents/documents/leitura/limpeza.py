@@ -1,12 +1,12 @@
 """Limpeza de texto extraído de PDF: linhas em branco, números de página, cabeçalhos/rodapés repetidos."""
 import re
 from collections import Counter
-from typing import List, Set
 
 _PAGINA_EXPLICITA = re.compile(
-    r"^\s*[-–—]?\s*(?:p[áa]g(?:ina)?\.?|page)\s*\d+(?:\s*(?:de|/|of)\s*\d+)?\s*[-–—]?\s*$", re.I
+    r"^\s*[-–—]?\s*(?:p[áa]g(?:ina)?\.?|page)\s*\d+(?:\s*(?:de|/|of)\s*\d+)?\s*[-–—]?\s*$",
+    re.IGNORECASE,
 )
-_N_DE_M = re.compile(r"^\s*\d{1,4}\s*(?:/|de|of)\s*\d{1,4}\s*$", re.I)
+_N_DE_M = re.compile(r"^\s*\d{1,4}\s*(?:/|de|of)\s*\d{1,4}\s*$", re.IGNORECASE)
 _NUMERO_SOZINHO = re.compile(r"^\s*[-–—]?\s*\d{1,3}\s*[-–—]?\s*$")
 _PONTILHADO = re.compile(r"(?:\.\s?){4,}")  # sumários: "Capítulo 1 ........ 5"
 _HIFEN_FINAL = re.compile(r"[A-Za-zÀ-ÿ]-$")
@@ -20,11 +20,15 @@ def chave_repeticao(linha: str) -> str:
     return re.sub(r"\d+", "#", re.sub(r"\s+", " ", linha.strip().lower()))
 
 
-def _linhas_nao_vazias(texto: str) -> List[str]:
-    return [re.sub(r"[ \t]+", " ", l).strip() for l in (texto or "").splitlines() if l.strip()]
+def _linhas_nao_vazias(texto: str) -> list[str]:
+    return [
+        re.sub(r"[ \t]+", " ", l).strip()
+        for l in (texto or "").splitlines()
+        if l.strip()
+    ]
 
 
-def detectar_repetidos(textos_paginas: List[str]) -> Set[str]:
+def detectar_repetidos(textos_paginas: list[str]) -> set[str]:
     """Linhas do topo/rodapé que aparecem na maioria das páginas amostradas."""
     if len(textos_paginas) < MIN_PAGINAS_PARA_REPETIDOS:
         return set()
@@ -39,10 +43,10 @@ def detectar_repetidos(textos_paginas: List[str]) -> Set[str]:
     return {chave for chave, n in contagem.items() if n >= minimo and chave}
 
 
-def limpar_texto(texto: str, repetidos: Set[str]) -> str:
+def limpar_texto(texto: str, repetidos: set[str]) -> str:
     """Remove linhas em branco, marcas de página e cabeçalhos/rodapés repetidos; junta palavras hifenizadas."""
     linhas = _linhas_nao_vazias(texto)
-    resultado: List[str] = []
+    resultado: list[str] = []
 
     for i, linha in enumerate(linhas):
         na_borda = i < LINHAS_DE_BORDA or i >= len(linhas) - LINHAS_DE_BORDA
@@ -55,7 +59,7 @@ def limpar_texto(texto: str, repetidos: Set[str]) -> str:
         resultado.append(_PONTILHADO.sub(" … ", linha))
 
     # palavra quebrada no fim da linha ("trans-" / "porte") volta a ser uma palavra só
-    juntas: List[str] = []
+    juntas: list[str] = []
     for linha in resultado:
         if juntas and _HIFEN_FINAL.search(juntas[-1]) and linha[:1].islower():
             juntas[-1] = juntas[-1][:-1] + linha

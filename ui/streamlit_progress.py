@@ -7,7 +7,8 @@ e a thread principal (Streamlit) lê os eventos de uma fila para atualizar a tel
 import queue
 import threading
 import time
-from typing import Any, Callable, Dict, List, Optional
+from collections.abc import Callable
+from typing import Any
 
 from langchain_core.callbacks import BaseCallbackHandler
 
@@ -35,8 +36,18 @@ DELEGACOES = {"descobrir_arquivos", "analisar_arquivos", "consultar_documentos"}
 
 # Argumentos que ajudam a identificar o que está sendo feito, em ordem de prioridade
 _CHAVES_DETALHE = (
-    "operation", "operacao", "acao", "arquivo", "package_id", "base_nome",
-    "termo_busca", "termo", "tipo_grafico", "pagina", "paginas", "aba",
+    "operation",
+    "operacao",
+    "acao",
+    "arquivo",
+    "package_id",
+    "base_nome",
+    "termo_busca",
+    "termo",
+    "tipo_grafico",
+    "pagina",
+    "paginas",
+    "aba",
 )
 
 
@@ -48,7 +59,11 @@ def _detalhe(nome: str, entrada: Any) -> str:
     campos = dict(entrada)
     if isinstance(entrada.get("params"), dict):
         campos.update(entrada["params"])
-    partes = [f"{c}={str(campos[c])[:40]}" for c in _CHAVES_DETALHE if campos.get(c) not in (None, "")]
+    partes = [
+        f"{c}={str(campos[c])[:40]}"
+        for c in _CHAVES_DETALHE
+        if campos.get(c) not in (None, "")
+    ]
     return ", ".join(partes[:3])
 
 
@@ -58,7 +73,7 @@ class ProgressoCallback(BaseCallbackHandler):
     def __init__(self, fila: "queue.Queue"):
         self.fila = fila
         self._lock = threading.Lock()
-        self._delegacao_do_run: Dict[Any, bool] = {}
+        self._delegacao_do_run: dict[Any, bool] = {}
         self._delegando = 0
 
     def on_tool_start(self, serialized, input_str, *, run_id, inputs=None, **kwargs):
@@ -71,7 +86,9 @@ class ProgressoCallback(BaseCallbackHandler):
                 self._delegando += 1
         texto = ROTULOS.get(nome, nome)
         detalhe = _detalhe(nome, inputs)
-        self.fila.put(("inicio", run_id, nivel, f"{texto} ({detalhe})" if detalhe else texto))
+        self.fila.put(
+            ("inicio", run_id, nivel, f"{texto} ({detalhe})" if detalhe else texto)
+        )
 
     def on_tool_end(self, output, *, run_id, **kwargs):
         self._encerrar(run_id, True)
@@ -96,7 +113,7 @@ def executar_com_progresso(
     agente,
     entrada: dict,
     config: dict,
-    atualizar: Callable[[List[dict], str, float], None],
+    atualizar: Callable[[list[dict], str, float], None],
     intervalo: float = 0.3,
 ):
     """Roda agente.invoke numa thread e chama atualizar(linhas, atividade, segundos) enquanto espera.
@@ -104,14 +121,14 @@ def executar_com_progresso(
     linhas: [{"texto", "nivel", "estado" ("rodando"|"ok"|"erro"), "duracao"}]. Devolve o resultado do agente
     ou relança a exceção que ele tiver levantado.
     """
-    fila: "queue.Queue" = queue.Queue()
+    fila: queue.Queue = queue.Queue()
     config = {**config, "callbacks": [ProgressoCallback(fila)]}
-    saida: Dict[str, Any] = {}
+    saida: dict[str, Any] = {}
 
     def _rodar():
         try:
             saida["resultado"] = agente.invoke(entrada, config=config)
-        except BaseException as e:  # noqa: BLE001 - repassado à thread principal
+        except BaseException as e:
             saida["erro"] = e
         finally:
             fila.put(("fim_geral",))
@@ -119,14 +136,14 @@ def executar_com_progresso(
     threading.Thread(target=_rodar, daemon=True).start()
 
     inicio = time.perf_counter()
-    linhas: List[dict] = []
-    por_id: Dict[Any, dict] = {}
+    linhas: list[dict] = []
+    por_id: dict[Any, dict] = {}
     llm_ativo = False
     terminou = False
 
     while not terminou:
         try:
-            evento: Optional[tuple] = fila.get(timeout=intervalo)
+            evento: tuple | None = fila.get(timeout=intervalo)
         except queue.Empty:
             evento = None
 
@@ -135,7 +152,13 @@ def executar_com_progresso(
             tipo = evento[0]
             if tipo == "inicio":
                 _, run_id, nivel, texto = evento
-                linha = {"texto": texto, "nivel": nivel, "estado": "rodando", "t0": time.perf_counter(), "duracao": None}
+                linha = {
+                    "texto": texto,
+                    "nivel": nivel,
+                    "estado": "rodando",
+                    "t0": time.perf_counter(),
+                    "duracao": None,
+                }
                 linhas.append(linha)
                 por_id[run_id] = linha
             elif tipo == "fim":

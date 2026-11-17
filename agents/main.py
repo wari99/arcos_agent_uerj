@@ -1,6 +1,6 @@
-import warnings
 import logging
 import time
+import warnings
 
 warnings.filterwarnings("ignore", message=".*additionalProperties.*")
 logging.getLogger("langchain_google_vertexai.functions_utils").setLevel(logging.ERROR)
@@ -33,7 +33,10 @@ def main():
 
                 try:
                     limpeza_result = limpar_pasta_temporaria_manual()
-                    print("ARCOS-RJ:", limpeza_result.get('mensagem', 'Limpeza concluída!'))
+                    print(
+                        "ARCOS-RJ:",
+                        limpeza_result.get("mensagem", "Limpeza concluída!"),
+                    )
                 except ImportError as e:
                     print(f"ARCOS-RJ: Erro no import da limpeza: {e}")
                 except Exception as e:
@@ -47,7 +50,9 @@ def main():
 
                 break
 
-            logger.info(f"pergunta recebida, supervisor analisando | pergunta: {pergunta[:300]}")
+            logger.info(
+                f"pergunta recebida, supervisor analisando | pergunta: {pergunta[:300]}"
+            )
             inicio = time.perf_counter()
             resultado = agent_memory.invoke(
                 {"messages": [HumanMessage(content=pergunta)]},
@@ -58,7 +63,9 @@ def main():
             resposta = resultado["messages"][-1].text.strip()
 
             if not resposta:
-                print("⚠️ ARCOS-RJ: Não consegui gerar uma resposta. Tente reformular a pergunta.")
+                print(
+                    "⚠️ ARCOS-RJ: Não consegui gerar uma resposta. Tente reformular a pergunta."
+                )
                 continue
 
             session_manager.add_message(SESSION_ID, "user", pergunta)

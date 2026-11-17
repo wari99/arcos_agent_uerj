@@ -2,7 +2,7 @@
 
 ## EXEMPLO 1: Pergunta mensal simples (1 dimensão)
 **Usuário:** "Quantas pessoas andaram de trem em agosto?"
-**Raciocínio do agente:** 
+**Raciocínio do agente:**
 - Identificar que é uma pergunta generalista, pois não cita nada relacionado a gratuidade nem a bilhete único, portanto é a base: setram_sbe (Bilhetagem eletrônica)
 - Agosto é citado isoladamente: Utilizar **CONSOLIDADO** mensal e inferir o *ano* a ser utilizado por quando o mês ocorreu de forma mais recente com a ferramenta **get_current_date()**
 - A pergunta apenas filtra por **Modal** = Trem. Use a operação *agrupar_e_somar*.
@@ -13,7 +13,7 @@
 
 ## EXEMPLO 2: Pergunta cruza dois filtros — Modal + Tipo Gratuidade
 **Usuário:** "Quantos idosos andaram de ônibus em janeiro deste ano com gratuidade?"
-**Raciocínio do agente:** 
+**Raciocínio do agente:**
 - Identificar que é uma pergunta que cita um tipo de gratuidade, portanto é da base: setram_sgr (Gratuidades)
 - Janeiro é citado sem o dia e com o ano atual: Utilizar **CONSOLIDADO** mensal e inferir o ano atual com a **get_current_date()**
 - O usuário deseja cruzar 2 dimensões Modal="ÔNIBUS" + Tipo="Idoso". Logo, localizar a linha que tem contém AMBOS os valores: ÔNIBUS + Idoso e retornar o total de transações
@@ -24,7 +24,7 @@
 
 ## EXEMPLO 3: Pergunta fornece um dia específico
 **Usuário:** "Quantas gratuidades para idosos existiu nos ônibus no dia 5 de março?"
-**Raciocínio do agente:** 
+**Raciocínio do agente:**
 - Identificar que a base de gratuidades é citada, portanto usar: setram_sgr (Gratuidades)
 - O mês é citado junto com o dia (05 de março): Utilizar arquivo diário **PUBLICO**. Usar a **get_current_date()** para entender se é o mês é do ano atual ou anterior.
 - Identificar o tipo de gratuidade pela coluna "Descrição da Aplicação". O valor e o ID na base é: "7001 - Idoso"
@@ -44,7 +44,7 @@
 
 ## EXEMPLO 5: Erro — modal não existe
 **Usuário:** "Quantas pessoas andaram de helicóptero em janeiro?"
-**Raciocínio do agente:** 
+**Raciocínio do agente:**
 - "helicóptero" NÃO é modal da base setram_sgr
 - Modais: ÔNIBUS, TRENS, METRÔ, BARCAS, VANS
 **Resposta esperada:** "A base de gratuidades não possui dados sobre helicóptero. Os modais disponíveis são: Ônibus, Trens, Metrô, Barcas e Vans." (NÃO chame nenhuma ferramenta)
@@ -68,7 +68,7 @@
 ## EXEMPLO 7: Total geral de um modal (soma todos os tipos)
 
 **Usuário:** "Quantas transações de ônibus em fevereiro?"
-**Raciocínio do agente:** 
+**Raciocínio do agente:**
 - O usuário não especificou tipo de gratuidade. Entenda que ele deseja TOTAL de transações de um Modal específico.
 - A referência de tempo é "Fevereiro" sem o dia. Portanto, use a **get_current_date()** para entender o ano de referência e use o filtro para arquivo **CONSOLIDADO**
 - `agrupar_e_somar` com `coluna="Modal Operadora"` soma TODOS os tipos
@@ -80,7 +80,7 @@
 
 ## EXEMPLO 8: Estudantes no DIÁRIO (requer múltiplas chamadas)
 **Usuário:** "Quantos estudantes andaram de ônibus no dia 10 de abril?"
-**Raciocínio do agente:** 
+**Raciocínio do agente:**
 - "dia 10 de abril" → **DIÁRIO**
 - `file_filter = "publico_2026_04_10"`
 - "Estudante" NÃO EXISTE como valor no diário
@@ -98,7 +98,7 @@
 **Usuário:** "Quantas gratuidades na semana passada?"
 **Data de hoje:** usar a get_current_date() para obter a data atual
 
-**Raciocínio do agente:** 
+**Raciocínio do agente:**
 - O usuário cita a "semana passada", então é necessário calcular o intervalo pedido de acordo com suas regras de inferencia de tempo
 - Parece "fora do período visível"? **FORCE A BUSCA PELAS DATAS PEDIDAS PARA VERIFICAR A DISPONIBILIDADE**
 - Usar `listar_recursos_da_base` com os dias pedidos.
@@ -114,4 +114,3 @@
 4. NÃO assumir que não existe sem verificar
 
 **A verificação é obrigatória.**
-

@@ -1,26 +1,36 @@
 import os
 import traceback
-from typing import Any, Callable, Dict, List
-from langchain.tools import tool
-from agents.tools.commons.core import logger
-from agents.sub_agents.analysis.tools.baixar_arquivo_dados import baixar_arquivo_dados
+from collections.abc import Callable
+from typing import Any
 
+from langchain.tools import tool
+
+from agents.sub_agents.analysis.tools.baixar_arquivo_dados import baixar_arquivo_dados
+from agents.tools.commons.core import logger
 from agents.tools.commons.utils import (
-    obter_pasta_temporaria,
-    obter_cache_arquivos,
     limpar_pasta_temporaria_manual,
+    obter_cache_arquivos,
+    obter_pasta_temporaria,
 )
 
 # (package_id, file_filter) -> aviso de arquivos omitidos pelo MAX_ARQUIVOS no último download.
 # Permite avisar também quando a consulta seguinte for atendida só pelo cache.
-_AVISOS_OMITIDOS: Dict[tuple, str] = {}
+_AVISOS_OMITIDOS: dict[tuple, str] = {}
 
-ACOES_DISPONIVEIS = ["listar", "info", "limpar", "remover_arquivo", "obter_para_analise"]
+ACOES_DISPONIVEIS = [
+    "listar",
+    "info",
+    "limpar",
+    "remover_arquivo",
+    "obter_para_analise",
+]
+
 
 def _mb(tamanho_bytes: int) -> float:
     return round(tamanho_bytes / (1024 * 1024), 2)
 
-def _item_arquivo(info_cache: Dict, do_cache: bool) -> Dict:
+
+def _item_arquivo(info_cache: dict, do_cache: bool) -> dict:
     """Entrada do cache no formato devolvido para análise."""
     return {
         "nome": info_cache["nome"],
@@ -33,26 +43,28 @@ def _item_arquivo(info_cache: Dict, do_cache: bool) -> Dict:
         "memo": info_cache.setdefault("memo", {}),
     }
 
-def _arquivos_da_pasta(pasta: str) -> List[Dict]:
+
+def _arquivos_da_pasta(pasta: str) -> list[dict]:
     """Arquivos (não diretórios) da pasta, com tamanho."""
     arquivos = []
     for item in os.listdir(pasta):
         caminho = os.path.join(pasta, item)
         if os.path.isfile(caminho):
             tamanho = os.path.getsize(caminho)
-            arquivos.append({
-                "nome": item,
-                "tamanho_bytes": tamanho,
-                "tamanho_mb": _mb(tamanho),
-                "caminho_completo": caminho,
-            })
+            arquivos.append(
+                {
+                    "nome": item,
+                    "tamanho_bytes": tamanho,
+                    "tamanho_mb": _mb(tamanho),
+                    "caminho_completo": caminho,
+                }
+            )
     return arquivos
 
+
 def obter_arquivos_para_analise(
-    package_id: str,
-    file_filter: str = "",
-    força_download: bool = False
-) -> Dict[str, Any]:
+    package_id: str, file_filter: str = "", força_download: bool = False
+) -> dict[str, Any]:
     """
     Obtém arquivos prontos para análise.
 
@@ -90,11 +102,16 @@ def obter_arquivos_para_analise(
                 do_cache = [
                     _item_arquivo(info, True)
                     for info in cache_arquivos.values()
-                    if (not file_filter or file_filter.lower() in info.get("nome", "").lower())
+                    if (
+                        not file_filter
+                        or file_filter.lower() in info.get("nome", "").lower()
+                    )
                     and os.path.exists(info["path"])
                 ]
                 if do_cache:
-                    logger.info(f"{len(do_cache)} arquivo(s) encontrado(s) no cache: {[a['nome'] for a in do_cache]}")
+                    logger.info(
+                        f"{len(do_cache)} arquivo(s) encontrado(s) no cache: {[a['nome'] for a in do_cache]}"
+                    )
                     resultado = {
                         "arquivos": do_cache,
                         "total_arquivos": len(do_cache),
@@ -108,13 +125,17 @@ def obter_arquivos_para_analise(
                 logger.info("Nenhum arquivo no cache, baixando...")
 
             except Exception as e:
-                logger.warning(f"Erro ao acessar cache: {e}. Tentando download mesmo assim...")
+                logger.warning(
+                    f"Erro ao acessar cache: {e}. Tentando download mesmo assim..."
+                )
 
         # PASSO 2: download
-        resultado_download = baixar_arquivo_dados({
-            "package_id": package_id,
-            "file_filter": file_filter,
-        })
+        resultado_download = baixar_arquivo_dados(
+            {
+                "package_id": package_id,
+                "file_filter": file_filter,
+            }
+        )
 
         if not isinstance(resultado_download, dict) or "erro" in resultado_download:
             erro_msg = (
@@ -126,12 +147,15 @@ def obter_arquivos_para_analise(
             return {"erro": f"Falha no download: {erro_msg}", "sucesso": False}
 
         # PASSO 3: cache atualizado -> arquivos baixados (índice por nome em vez de varredura por arquivo)
-        cache_por_nome = {info["nome"]: info for info in obter_cache_arquivos().values()}
+        cache_por_nome = {
+            info["nome"]: info for info in obter_cache_arquivos().values()
+        }
         baixados = [
             _item_arquivo(cache_por_nome[nome], False)
             for nome, info in resultado_download.items()
             if nome != "_resumo_processamento"
-            and isinstance(info, dict) and info.get("sucesso")
+            and isinstance(info, dict)
+            and info.get("sucesso")
             and nome in cache_por_nome
             and os.path.exists(cache_por_nome[nome]["path"])
         ]
@@ -144,7 +168,9 @@ def obter_arquivos_para_analise(
                 "sucesso": False,
             }
 
-        logger.info(f"{len(baixados)} arquivo(s) pronto(s) para análise: {[a['nome'] for a in baixados]}")
+        logger.info(
+            f"{len(baixados)} arquivo(s) pronto(s) para análise: {[a['nome'] for a in baixados]}"
+        )
         resultado = {
             "arquivos": baixados,
             "total_arquivos": len(baixados),
@@ -161,11 +187,17 @@ def obter_arquivos_para_analise(
 
     except Exception as e:
         # traceback só no log: no retorno ele iria para o contexto do modelo
-        logger.error(f"Erro crítico em obter_arquivos_para_analise: {e}\n{traceback.format_exc()}")
-        return {"erro": f"Erro crítico em obter_arquivos_para_analise: {e}", "sucesso": False}
+        logger.error(
+            f"Erro crítico em obter_arquivos_para_analise: {e}\n{traceback.format_exc()}"
+        )
+        return {
+            "erro": f"Erro crítico em obter_arquivos_para_analise: {e}",
+            "sucesso": False,
+        }
+
 
 # AÇÕES DA TOOL
-def _acao_obter_para_analise(params: dict, pasta_temp: str = "") -> Dict:
+def _acao_obter_para_analise(params: dict, pasta_temp: str = "") -> dict:
     package_id = params.get("package_id")
     if not package_id:
         return {"erro": "Parâmetro 'package_id' é obrigatório", "sucesso": False}
@@ -178,7 +210,8 @@ def _acao_obter_para_analise(params: dict, pasta_temp: str = "") -> Dict:
         força_download=força_download,
     )
 
-def _acao_listar(params: dict, pasta_temp: str) -> Dict:
+
+def _acao_listar(params: dict, pasta_temp: str) -> dict:
     arquivos = _arquivos_da_pasta(pasta_temp)
     total_mb = _mb(sum(a["tamanho_bytes"] for a in arquivos))
     logger.info(f"Listagem de {pasta_temp}: {len(arquivos)} arquivo(s), {total_mb} MB")
@@ -191,7 +224,8 @@ def _acao_listar(params: dict, pasta_temp: str) -> Dict:
         "sucesso": True,
     }
 
-def _acao_info(params: dict, pasta_temp: str) -> Dict:
+
+def _acao_info(params: dict, pasta_temp: str) -> dict:
     arquivos = _arquivos_da_pasta(pasta_temp)
     total_mb = _mb(sum(a["tamanho_bytes"] for a in arquivos))
     logger.info(f"Info de {pasta_temp}: {len(arquivos)} arquivo(s), {total_mb} MB")
@@ -204,7 +238,8 @@ def _acao_info(params: dict, pasta_temp: str) -> Dict:
         "sucesso": True,
     }
 
-def _acao_limpar(params: dict, pasta_temp: str) -> Dict:
+
+def _acao_limpar(params: dict, pasta_temp: str) -> dict:
     resultado = limpar_pasta_temporaria_manual()
     sucesso = resultado.get("status") == "sucesso"
     if sucesso:
@@ -213,7 +248,8 @@ def _acao_limpar(params: dict, pasta_temp: str) -> Dict:
         logger.warning(f"Erro ao limpar: {resultado}")
     return {"acao": "limpar", "resultado": resultado, "sucesso": sucesso}
 
-def _acao_remover_arquivo(params: dict, pasta_temp: str) -> Dict:
+
+def _acao_remover_arquivo(params: dict, pasta_temp: str) -> dict:
     arquivo = params.get("arquivo")
     if not arquivo:
         logger.error("Nome do arquivo não especificado")
@@ -254,12 +290,13 @@ def _acao_remover_arquivo(params: dict, pasta_temp: str) -> Dict:
 
 
 # ações que operam sobre a pasta temporária da sessão
-_ACOES_NA_PASTA: Dict[str, Callable[[dict, str], Dict]] = {
+_ACOES_NA_PASTA: dict[str, Callable[[dict, str], dict]] = {
     "listar": _acao_listar,
     "info": _acao_info,
     "limpar": _acao_limpar,
     "remover_arquivo": _acao_remover_arquivo,
 }
+
 
 @tool("gerenciar_cache_sessao")
 def gerenciar_cache_sessao(params: dict) -> Any:
@@ -290,7 +327,11 @@ def gerenciar_cache_sessao(params: dict) -> Any:
         pasta_temp = obter_pasta_temporaria()
         if not pasta_temp or not os.path.exists(pasta_temp):
             logger.warning("Nenhuma pasta temporária ativa")
-            return {"acao": acao, "status": "info", "mensagem": "Nenhuma pasta temporária ativa"}
+            return {
+                "acao": acao,
+                "status": "info",
+                "mensagem": "Nenhuma pasta temporária ativa",
+            }
 
         return _ACOES_NA_PASTA[acao](params, pasta_temp)
 

@@ -58,4 +58,3 @@
 - [ ] Usei uma coluna por parâmetro?
 - [ ] Chamei `analisar_dados_arquivo` direto (sem cache/download/`preview` por rotina) e percorri a paginação ao listar arquivos?
 - [ ] Citei a fonte?
-

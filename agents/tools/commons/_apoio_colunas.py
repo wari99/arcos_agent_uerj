@@ -1,10 +1,3 @@
-# regex que casa qualquer caractere que NÃO seja letra minúscula ou número.
-# Usado para limpar nomes de coluna encontrados: "Qtd. Transações" -> "qtdtransacoes"
-_PADRAO_NAO_ALFANUMERICO = re.compile(r"[^a-z0-9]")
-
-# qtd de valores parecidos devolver quando o filtro não acha nada
-LIMITE_SUGESTOES_DE_VALORES = 20
-
 """
 Funções de apoio compartilhadas pelas operações (_operacoes_*.py):
 tudo que lida com NOMES DE COLUNA e com BUSCA DE VALORES dentro de uma coluna.
@@ -22,11 +15,19 @@ import logging
 import re
 import unicodedata
 from functools import lru_cache
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
+
 import pandas as pd
-import re
 
 logger = logging.getLogger(__name__)
+
+# regex que casa qualquer caractere que NÃO seja letra minúscula ou número.
+# Usado para limpar nomes de coluna encontrados: "Qtd. Transações" -> "qtdtransacoes"
+_PADRAO_NAO_ALFANUMERICO = re.compile(r"[^a-z0-9]")
+
+# qtd de valores parecidos devolver quando o filtro não acha nada
+LIMITE_SUGESTOES_DE_VALORES = 20
+
 
 @lru_cache(maxsize=8192)
 def normalizar_texto(texto: str) -> str:
@@ -53,6 +54,7 @@ def normalizar_texto(texto: str) -> str:
 
     return texto_sem_acento.lower().strip()
 
+
 def simplificar_nome_de_coluna(nome) -> str:
     """
     Deixa só letras minúsculas e números, sem acento, espaço ou pontuação. Serve para comparar nomes de coluna que se parecem.
@@ -62,8 +64,11 @@ def simplificar_nome_de_coluna(nome) -> str:
         "Qtde Transações"  -> "qtdetransacoes"
         "Nº Carro"         -> "nocarro"   (o símbolo "º" é decomposto na letra "o")
     """
-    sem_acento = normalizar_texto(str(nome))  # str(): o nome da coluna pode ser um número
+    sem_acento = normalizar_texto(
+        str(nome)
+    )  # str(): o nome da coluna pode ser um número
     return _PADRAO_NAO_ALFANUMERICO.sub("", sem_acento)
+
 
 def resolver_coluna(df: pd.DataFrame, nome):
     """
@@ -87,13 +92,15 @@ def resolver_coluna(df: pd.DataFrame, nome):
 
     nome_procurado = simplificar_nome_de_coluna(nome)
 
-    #igual depois de simplificar
+    # igual depois de simplificar
     if nome_procurado in coluna_real_por_nome_simplificado:
         coluna_escolhida = coluna_real_por_nome_simplificado[nome_procurado]
     else:
         # procura o nome mais parecido (cutoff=0.8 significa 80% de semelhança)
         candidatos = list(coluna_real_por_nome_simplificado.keys())
-        parecidos = difflib.get_close_matches(nome_procurado, candidatos, n=1, cutoff=0.8)
+        parecidos = difflib.get_close_matches(
+            nome_procurado, candidatos, n=1, cutoff=0.8
+        )
 
         if not parecidos:
             return nome
@@ -104,7 +111,9 @@ def resolver_coluna(df: pd.DataFrame, nome):
     return coluna_escolhida
 
 
-def validar_coluna(df: pd.DataFrame, nome, mensagem: str, **extras) -> Tuple[Any, Optional[Dict[str, Any]]]:
+def validar_coluna(
+    df: pd.DataFrame, nome, mensagem: str, **extras
+) -> tuple[Any, dict[str, Any] | None]:
     """
     Confere se a coluna existe (corrigindo pequenos erros de digitação com resolver_coluna).
 
@@ -134,7 +143,10 @@ def validar_coluna(df: pd.DataFrame, nome, mensagem: str, **extras) -> Tuple[Any
     erro["sucesso"] = False
     return nome, erro
 
-def mascara_por_valor(df: pd.DataFrame, coluna: str, valor) -> Tuple[pd.Series, List[str]]:
+
+def mascara_por_valor(
+    df: pd.DataFrame, coluna: str, valor
+) -> tuple[pd.Series, list[str]]:
     """
     Marca (True/False) as linhas em que a coluna CONTÉM o valor procurado.
     A busca é parcial, ignora acento e ignora maiúsculas/minúsculas.
@@ -162,7 +174,9 @@ def mascara_por_valor(df: pd.DataFrame, coluna: str, valor) -> Tuple[pd.Series, 
     return linha_casou, valores_que_casaram
 
 
-def filtrar_por_valor(df: pd.DataFrame, coluna: str, valor) -> Tuple[pd.DataFrame, List[str]]:
+def filtrar_por_valor(
+    df: pd.DataFrame, coluna: str, valor
+) -> tuple[pd.DataFrame, list[str]]:
     """
     Igual a mascara_por_valor, mas já devolve o DataFrame só com as linhas que casaram
     (e a lista dos valores distintos que casaram).
@@ -171,7 +185,9 @@ def filtrar_por_valor(df: pd.DataFrame, coluna: str, valor) -> Tuple[pd.DataFram
     return df[linha_casou], valores_que_casaram
 
 
-def sugerir_valores(valores, procurado, limite: int = LIMITE_SUGESTOES_DE_VALORES) -> list:
+def sugerir_valores(
+    valores, procurado, limite: int = LIMITE_SUGESTOES_DE_VALORES
+) -> list:
     """
     Quando um filtro não acha nenhuma linha, ajuda o modelo a corrigir o pedido
     devolvendo os valores da coluna mais PARECIDOS com o que foi procurado.

@@ -42,7 +42,7 @@ run:
 
 web:
 	@streamlit run ui/app_streamlit.py
-	
+
 chat-history:
 	@sqlite3 ./db/sessions.db ".mode column" ".headers on" "SELECT * FROM message_store;"
 

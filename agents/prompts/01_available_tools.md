@@ -20,7 +20,7 @@ Sem parâmetros. Retorna data/hora atual é ESSENCIAL para que o agente possa tr
 - Cálculo de ano para filtros
 
 ### `listar_bases()`
-Sem parâmetros obrigatórios. Lista todas as bases disponíveis para consulta no ARCOS. 
+Sem parâmetros obrigatórios. Lista todas as bases disponíveis para consulta no ARCOS.
 **Retorna:** Lista de bases com IDs.
 
 ### `buscar_infos_base(termo_busca)`
@@ -109,14 +109,14 @@ Gerencia cache da sessão (dados já baixados).
 
 
 ## Erros Comuns
-- Chamar `gerenciar_cache_sessao` ou `baixar_arquivo_dados` por rotina antes de `analisar_dados_arquivo`  
+- Chamar `gerenciar_cache_sessao` ou `baixar_arquivo_dados` por rotina antes de `analisar_dados_arquivo`
 **CORRETO**: Chamar `analisar_dados_arquivo` direto; ele consulta o cache e baixa o arquivo se faltar
 
 - Usar `file_filter = "2025_08"` como parâmetro de uma ferramenta
 **CORRETO**: Usar como parâmetro um filtro mais completo, como `file_filter = "consolidado_2025_08"` ou `"publico_2025_08_15"`
 
-- Passar `coluna = "Col1,Col2"` (duas colunas sendo passadas como filtro)  
+- Passar `coluna = "Col1,Col2"` (duas colunas sendo passadas como filtro)
 **CORRETO**: Usar uma coluna por vez ou fazer duas chamadas
 
-- Assumir que base está vazia sem chamar `listar_recursos_da_base`  
+- Assumir que base está vazia sem chamar `listar_recursos_da_base`
 **CORRETO**: Verificar com a ferramenta primeiro e percorrer TODOS os seus arquivos antes de afirmar que a base não contém algum arquivo solicitado

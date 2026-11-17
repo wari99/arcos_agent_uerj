@@ -7,7 +7,6 @@ import time
 import unicodedata
 import zipfile
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
 
 import requests
 
@@ -21,7 +20,7 @@ LIMITE_DOWNLOAD_MB = 80
 TTL_BASE_SEGUNDOS = 600
 MAX_NOMES_NA_MENSAGEM = 15
 
-_CACHE_BASES: Dict[str, Tuple[float, dict]] = {}
+_CACHE_BASES: dict[str, tuple[float, dict]] = {}
 
 # O agente tende a "chutar" outros ids quando a base não existe (cada chute é uma ida à API): a mensagem o impede
 _BASE_INEXISTENTE = (
@@ -48,9 +47,13 @@ class Fonte:
 def normalizar(texto: str) -> str:
     """Minúsculas, sem acentos, só letras e números separados por espaço."""
     sem_acento = "".join(
-        c for c in unicodedata.normalize("NFD", texto or "") if not unicodedata.combining(c)
+        c
+        for c in unicodedata.normalize("NFD", texto or "")
+        if not unicodedata.combining(c)
     )
-    return " ".join("".join(c if c.isalnum() else " " for c in sem_acento.lower()).split())
+    return " ".join(
+        "".join(c if c.isalnum() else " " for c in sem_acento.lower()).split()
+    )
 
 
 def _consultar_base(package_id: str) -> dict:
@@ -60,7 +63,9 @@ def _consultar_base(package_id: str) -> dict:
 
     modelo_url = os.getenv("URL_CONSULTAR_PROCESSAR_ARQUIVO")
     if not modelo_url:
-        raise ErroDocumento("Variável de ambiente URL_CONSULTAR_PROCESSAR_ARQUIVO não configurada.")
+        raise ErroDocumento(
+            "Variável de ambiente URL_CONSULTAR_PROCESSAR_ARQUIVO não configurada."
+        )
     try:
         resp = requests.get(modelo_url.format(package_id), timeout=TIMEOUT_REQUISICAO)
         resp.raise_for_status()
@@ -86,7 +91,7 @@ def _nome_na_url(recurso: dict) -> str:
     return os.path.basename((recurso.get("url") or "").split("?")[0])
 
 
-def _lista_nomes(recursos: List[dict]) -> str:
+def _lista_nomes(recursos: list[dict]) -> str:
     nomes = [f"'{r.get('name') or _nome_na_url(r)}'" for r in recursos]
     texto = "; ".join(nomes[:MAX_NOMES_NA_MENSAGEM])
     if len(nomes) > MAX_NOMES_NA_MENSAGEM:
@@ -94,7 +99,7 @@ def _lista_nomes(recursos: List[dict]) -> str:
     return texto
 
 
-def _escolher_recurso(recursos: List[dict], arquivo: str) -> dict:
+def _escolher_recurso(recursos: list[dict], arquivo: str) -> dict:
     if not recursos:
         raise ErroDocumento("A base não tem arquivos.")
 
@@ -107,7 +112,11 @@ def _escolher_recurso(recursos: List[dict], arquivo: str) -> dict:
     def nomes(r):
         return normalizar(r.get("name", "")), normalizar(_nome_na_url(r))
 
-    for r in recursos:  # nome idêntico, respeitando maiúsculas (a base pode ter nomes que só diferem nisso)
+    for (
+        r
+    ) in (
+        recursos
+    ):  # nome idêntico, respeitando maiúsculas (a base pode ter nomes que só diferem nisso)
         if arquivo.strip() in (r.get("name", ""), _nome_na_url(r)):
             return r
 
@@ -122,18 +131,26 @@ def _escolher_recurso(recursos: List[dict], arquivo: str) -> dict:
     candidatos = [r for r in recursos if any(alvo in n for n in nomes(r))]
     if not candidatos:  # todas as palavras presentes, em qualquer ordem
         palavras = alvo.split()
-        candidatos = [r for r in recursos if any(all(p in n for p in palavras) for n in nomes(r))]
+        candidatos = [
+            r for r in recursos if any(all(p in n for p in palavras) for n in nomes(r))
+        ]
 
     if len(candidatos) == 1:
         return candidatos[0]
     if not candidatos:
-        raise ErroDocumento(f"Nenhum arquivo casa com '{arquivo}'. Disponíveis: {_lista_nomes(recursos)}")
-    raise ErroDocumento(f"'{arquivo}' é ambíguo. Candidatos: {_lista_nomes(candidatos)}")
+        raise ErroDocumento(
+            f"Nenhum arquivo casa com '{arquivo}'. Disponíveis: {_lista_nomes(recursos)}"
+        )
+    raise ErroDocumento(
+        f"'{arquivo}' é ambíguo. Candidatos: {_lista_nomes(candidatos)}"
+    )
 
 
 def _pasta_documentos() -> str:
     """Subpasta da pasta temporária da sessão (apagada no /sair pela limpeza existente)."""
-    if _estado.pasta_temporaria_global is None or not os.path.exists(_estado.pasta_temporaria_global):
+    if _estado.pasta_temporaria_global is None or not os.path.exists(
+        _estado.pasta_temporaria_global
+    ):
         _estado.pasta_temporaria_global = tempfile.mkdtemp(prefix="arcos_rj_")
     pasta = os.path.join(_estado.pasta_temporaria_global, "documentos")
     os.makedirs(pasta, exist_ok=True)
@@ -174,14 +191,18 @@ def _baixar(url: str, destino: str) -> None:
     temporario = destino + ".parcial"
     limite = LIMITE_DOWNLOAD_MB * 1024 * 1024
     try:
-        with requests.get(url, stream=True, timeout=(10, TIMEOUT_DOWNLOAD_SEGUNDOS)) as resp:
+        with requests.get(
+            url, stream=True, timeout=(10, TIMEOUT_DOWNLOAD_SEGUNDOS)
+        ) as resp:
             resp.raise_for_status()
             total = 0
             with open(temporario, "wb") as f:
                 for pedaco in resp.iter_content(chunk_size=256 * 1024):
                     total += len(pedaco)
                     if total > limite:
-                        raise ErroDocumento(f"Arquivo maior que o limite de {LIMITE_DOWNLOAD_MB} MB.")
+                        raise ErroDocumento(
+                            f"Arquivo maior que o limite de {LIMITE_DOWNLOAD_MB} MB."
+                        )
                     f.write(pedaco)
         os.replace(temporario, destino)
     except requests.exceptions.RequestException as e:
@@ -203,7 +224,9 @@ def obter_fonte(package_id: str, arquivo: str) -> Fonte:
         raise ErroDocumento("O recurso não tem URL de download.")
 
     nome = recurso.get("name") or _nome_na_url(recurso) or "arquivo"
-    base_cache = os.path.join(_pasta_documentos(), hashlib.sha1(url.encode()).hexdigest()[:16])
+    base_cache = os.path.join(
+        _pasta_documentos(), hashlib.sha1(url.encode()).hexdigest()[:16]
+    )
     caminho = next((c for c in glob.glob(base_cache + ".*")), None)
 
     if caminho:
@@ -226,7 +249,9 @@ def obter_fonte(package_id: str, arquivo: str) -> Fonte:
         tamanho_mb=round(os.path.getsize(caminho) / (1024 * 1024), 2),
         base={
             "titulo": base.get("title", ""),
-            "orgao": organizacao.get("title", "") if isinstance(organizacao, dict) else "",
+            "orgao": organizacao.get("title", "")
+            if isinstance(organizacao, dict)
+            else "",
             "descricao": (base.get("notes") or "").strip(),
             "atualizado_em": (base.get("metadata_modified") or "")[:10],
         },

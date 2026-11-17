@@ -2,20 +2,24 @@
 import io
 import re
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
 
 import pdfplumber
 
 from agents.sub_agents.documents.leitura.fonte import ErroDocumento
 from agents.sub_agents.documents.leitura.limpeza import detectar_repetidos, limpar_texto
+from agents.tools.commons.core import get_logger
 
-AMOSTRA_REPETIDOS = 12          # páginas usadas para descobrir cabeçalhos e rodapés
-LIMITE_MAPEAR_PAGINAS = 100     # páginas analisadas no mapeamento
-LIMITE_MAPEAR_TABELAS = 40      # procurar tabelas custa caro: só nas primeiras páginas
+logger = get_logger("documents")
+
+AMOSTRA_REPETIDOS = 12  # páginas usadas para descobrir cabeçalhos e rodapés
+LIMITE_MAPEAR_PAGINAS = 100  # páginas analisadas no mapeamento
+LIMITE_MAPEAR_TABELAS = 40  # procurar tabelas custa caro: só nas primeiras páginas
 MIN_CHARS_COM_TEXTO = 25
 MAX_LINHAS_TABELA = 80
 MIN_OBJETOS_GRAFICO = 20
-MAX_CHARS_CELULA = 300        # célula maior que isso: a detecção juntou a página inteira numa célula
+MAX_CHARS_CELULA = (
+    300  # célula maior que isso: a detecção juntou a página inteira numa célula
+)
 MIN_CELULAS_PREENCHIDAS = 4
 PAGINAS_PADRAO = 5
 
@@ -24,7 +28,7 @@ PAGINAS_PADRAO = 5
 class PaginaExtraida:
     numero: int
     texto: str
-    tabelas: List[str] = field(default_factory=list)
+    tabelas: list[str] = field(default_factory=list)
     n_chars: int = 0
     n_imagens: int = 0
     possivel_grafico: bool = False
@@ -36,9 +40,9 @@ class PaginaExtraida:
 
 
 # estado por arquivo, para não reprocessar a cada chamada de ferramenta
-_REPETIDOS: Dict[str, set] = {}
-_PAGINAS: Dict[tuple, PaginaExtraida] = {}
-_TEXTO_BUSCA: Dict[str, List[str]] = {}
+_REPETIDOS: dict[str, set] = {}
+_PAGINAS: dict[tuple, PaginaExtraida] = {}
+_TEXTO_BUSCA: dict[str, list[str]] = {}
 
 
 def _abrir(caminho: str):
@@ -55,22 +59,26 @@ def total_paginas(caminho: str) -> int:
         return len(pdf.pages)
 
 
-def interpretar_intervalo(expressao: Optional[str], total: int) -> List[int]:
+def interpretar_intervalo(expressao: str | None, total: int) -> list[int]:
     """'1-3,7' -> [1,2,3,7]. Sem expressão: as primeiras páginas."""
     if not expressao or not str(expressao).strip():
         return list(range(1, min(total, PAGINAS_PADRAO) + 1))
 
-    paginas: List[int] = []
+    paginas: list[int] = []
     for parte in str(expressao).replace(" ", "").split(","):
         if not parte:
             continue
         m = re.fullmatch(r"(\d+)(?:-(\d+))?", parte)
         if not m:
-            raise ErroDocumento(f"Intervalo de páginas inválido: '{expressao}'. Use, por exemplo, '1-3,7'.")
+            raise ErroDocumento(
+                f"Intervalo de páginas inválido: '{expressao}'. Use, por exemplo, '1-3,7'."
+            )
         inicio = int(m.group(1))
         fim = int(m.group(2) or inicio)
         if inicio < 1 or fim < inicio or fim > total:
-            raise ErroDocumento(f"Páginas fora do documento (ele tem {total}): '{parte}'.")
+            raise ErroDocumento(
+                f"Páginas fora do documento (ele tem {total}): '{parte}'."
+            )
         paginas.extend(range(inicio, fim + 1))
 
     return sorted(set(paginas))
@@ -86,13 +94,19 @@ def _repetidos(pdf, caminho: str) -> set:
     return _REPETIDOS[caminho]
 
 
-def _para_markdown(tabela: List[List[Optional[str]]], numero: int) -> Optional[str]:
-    linhas = [[(c or "").replace("\n", " ").replace("|", "/").strip() for c in linha] for linha in tabela]
+def _para_markdown(tabela: list[list[str | None]], numero: int) -> str | None:
+    linhas = [
+        [(c or "").replace("\n", " ").replace("|", "/").strip() for c in linha]
+        for linha in tabela
+    ]
     linhas = [l for l in linhas if any(l)]
     if len(linhas) < 2 or max(len(l) for l in linhas) < 2:
         return None  # ruído: uma "tabela" de uma linha ou coluna só
     celulas = [c for l in linhas for c in l if c]
-    if len(celulas) < MIN_CELULAS_PREENCHIDAS or max(len(c) for c in celulas) > MAX_CHARS_CELULA:
+    if (
+        len(celulas) < MIN_CELULAS_PREENCHIDAS
+        or max(len(c) for c in celulas) > MAX_CHARS_CELULA
+    ):
         return None  # tabela degenerada: melhor o texto simples do que células com a página inteira
 
     largura = max(len(l) for l in linhas)
@@ -115,7 +129,10 @@ def _parece_grafico(pagina, tem_tabela: bool) -> bool:
     Curvas e retângulos sozinhos não servem: bordas e cantos arredondados de tabelas também os produzem."""
     if tem_tabela:
         return False
-    return len(pagina.curves) + len(pagina.rects) + len(pagina.lines) >= MIN_OBJETOS_GRAFICO
+    return (
+        len(pagina.curves) + len(pagina.rects) + len(pagina.lines)
+        >= MIN_OBJETOS_GRAFICO
+    )
 
 
 def _fora_das_tabelas(pagina, caixas):
@@ -133,7 +150,7 @@ def _extrair(pdf, caminho: str, numero: int) -> PaginaExtraida:
     pagina = pdf.pages[numero - 1]
     repetidos = _repetidos(pdf, caminho)
 
-    tabelas_md: List[str] = []
+    tabelas_md: list[str] = []
     caixas = []
     rejeitadas = 0
     try:
@@ -144,8 +161,10 @@ def _extrair(pdf, caminho: str, numero: int) -> PaginaExtraida:
                 caixas.append(t.bbox)
             else:
                 rejeitadas += 1
-    except Exception:
-        pass  # tabela é um extra: falhar aqui não pode derrubar a leitura do texto
+    except Exception as e:
+        logger.warning(
+            "Falha ao extrair tabelas do PDF: %s", e
+        )  # tabela é um extra: falhar aqui não pode derrubar a leitura do texto
 
     origem = _fora_das_tabelas(pagina, caixas) if caixas else pagina
     texto = limpar_texto(origem.extract_text() or "", repetidos)
@@ -161,7 +180,7 @@ def _extrair(pdf, caminho: str, numero: int) -> PaginaExtraida:
     )
 
 
-def extrair_paginas(caminho: str, numeros: List[int]) -> List[PaginaExtraida]:
+def extrair_paginas(caminho: str, numeros: list[int]) -> list[PaginaExtraida]:
     faltam = [n for n in numeros if (caminho, n) not in _PAGINAS]
     if faltam:
         with _abrir(caminho) as pdf:
@@ -188,12 +207,18 @@ def mapear(caminho: str) -> dict:
                 sem_texto.append(n)
             if pagina.images:
                 com_imagens.append(n)
-            if n <= LIMITE_MAPEAR_TABELAS:  # sem saber se há tabela, a heurística de gráfico não vale
+            if (
+                n <= LIMITE_MAPEAR_TABELAS
+            ):  # sem saber se há tabela a heurística de gráfico n vale
                 tem_tabela = False
                 try:
-                    tem_tabela = any(_para_markdown(t.extract(), n) for t in pagina.find_tables())
-                except Exception:
-                    pass
+                    tem_tabela = any(
+                        _para_markdown(t.extract(), n) for t in pagina.find_tables()
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "Falha ao identificar tabelas na página %s: %s", n, e
+                    )
                 if tem_tabela:
                     com_tabelas.append(n)
                 if _parece_grafico(pagina, tem_tabela):
@@ -205,8 +230,8 @@ def mapear(caminho: str) -> dict:
                 sumario.append(f"{'  ' * (nivel - 1)}{titulo}")
                 if len(sumario) >= 40:
                     break
-        except Exception:
-            pass  # PDF sem marcadores
+        except Exception as e:
+            logger.debug("PDF sem marcadores ou falha ao identificá-los: %s", e)
 
         inicio = ""
         if total:
@@ -223,23 +248,31 @@ def mapear(caminho: str) -> dict:
             "escaneado": analisar > 0 and len(sem_texto) >= 0.6 * analisar,
             "sumario": sumario,
             "inicio": inicio,
-            "metadados": {k: str(v) for k, v in (pdf.metadata or {}).items() if k in ("Title", "Author", "CreationDate")},
+            "metadados": {
+                k: str(v)
+                for k, v in (pdf.metadata or {}).items()
+                if k in ("Title", "Author", "CreationDate")
+            },
         }
 
 
-def texto_para_busca(caminho: str) -> List[str]:
+def texto_para_busca(caminho: str) -> list[str]:
     """Texto limpo de cada página (sem a separação de tabelas, que é cara), para buscar termos."""
     if caminho not in _TEXTO_BUSCA:
         with _abrir(caminho) as pdf:
             repetidos = _repetidos(pdf, caminho)
-            _TEXTO_BUSCA[caminho] = [limpar_texto(p.extract_text() or "", repetidos) for p in pdf.pages]
+            _TEXTO_BUSCA[caminho] = [
+                limpar_texto(p.extract_text() or "", repetidos) for p in pdf.pages
+            ]
     return _TEXTO_BUSCA[caminho]
 
 
 def renderizar_png(caminho: str, numero: int, resolucao: int = 130) -> bytes:
     with _abrir(caminho) as pdf:
         if not 1 <= numero <= len(pdf.pages):
-            raise ErroDocumento(f"Página {numero} fora do documento (ele tem {len(pdf.pages)}).")
+            raise ErroDocumento(
+                f"Página {numero} fora do documento (ele tem {len(pdf.pages)})."
+            )
         imagem = pdf.pages[numero - 1].to_image(resolution=resolucao).original
         buffer = io.BytesIO()
         imagem.save(buffer, format="PNG")

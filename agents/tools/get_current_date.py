@@ -1,5 +1,7 @@
-from langchain.tools import tool
 from datetime import datetime
+
+from langchain.tools import tool
+
 
 @tool("get_current_date")
 def get_current_date() -> dict:
@@ -7,5 +9,5 @@ def get_current_date() -> dict:
 
     return {
         "current_date": datetime.now().strftime("%Y-%m-%d"),
-        "current_day": datetime.now().strftime("%A")
+        "current_day": datetime.now().strftime("%A"),
     }

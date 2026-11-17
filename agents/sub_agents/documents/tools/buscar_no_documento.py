@@ -26,13 +26,15 @@ def _trechos(texto: str, alvo: str, maximo: int):
         posicoes.append(i)
         inicio = i + len(alvo)
     return [
-        " ".join(texto[max(0, i - TRECHO): i + len(alvo) + TRECHO].split())
+        " ".join(texto[max(0, i - TRECHO) : i + len(alvo) + TRECHO].split())
         for i in posicoes
     ]
 
 
 @tool("buscar_no_documento")
-def buscar_no_documento(package_id: str, arquivo: str, termo: str, max_resultados: int = 8) -> str:
+def buscar_no_documento(
+    package_id: str, arquivo: str, termo: str, max_resultados: int = 8
+) -> str:
     """Procura uma palavra ou expressão DENTRO de um documento (sem diferenciar maiúsculas nem acentos) e diz em
     quais páginas (PDF) ou células (planilha) ela aparece, com um trecho de cada. Útil para ler só as páginas
     relevantes de um documento grande."""
@@ -56,7 +58,10 @@ def buscar_no_documento(package_id: str, arquivo: str, termo: str, max_resultado
                 return f"'{termo}' não aparece no texto de {f.nome}. Se o PDF for escaneado, o texto pode não estar disponível (veja mapear_documento)."
             linhas = [f"'{termo}' em {f.nome}: {len(achados)} página(s)"]
             for numero, contagem, trechos in achados[:maximo]:
-                linhas.append(f"- página {numero} ({contagem}x): " + " [...] ".join(f'"{t}"' for t in trechos))
+                linhas.append(
+                    f"- página {numero} ({contagem}x): "
+                    + " [...] ".join(f'"{t}"' for t in trechos)
+                )
             if len(achados) > maximo:
                 linhas.append(f"(+{len(achados) - maximo} páginas)")
             return "\n".join(linhas)
@@ -66,12 +71,15 @@ def buscar_no_documento(package_id: str, arquivo: str, termo: str, max_resultado
             if not achados:
                 return f"'{termo}' não aparece na planilha {f.nome}."
             linhas = [f"'{termo}' em {f.nome}:"]
-            linhas += [f"- aba '{a['aba']}', célula {a['celula']}: {a['linha']}" for a in achados]
+            linhas += [
+                f"- aba '{a['aba']}', célula {a['celula']}: {a['linha']}"
+                for a in achados
+            ]
             return "\n".join(linhas)
 
         return f"Busca não disponível para o tipo '{f.tipo}' (suportados: pdf e xlsx)."
     except ErroDocumento as e:
         return f"ERRO: {e}"
     except Exception as e:
-        logger.error(f"buscar_no_documento falhou: {e}", exc_info=True)
+        logger.exception("buscar_no_documento falhou")
         return f"ERRO inesperado na busca: {e}"

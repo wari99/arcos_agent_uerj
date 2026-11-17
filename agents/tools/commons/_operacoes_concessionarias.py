@@ -10,8 +10,10 @@ e o resultado avisa quando houve inferência.
 """
 
 import logging
+from collections.abc import Callable
+from typing import Any, NamedTuple
+
 import pandas as pd
-from typing import Any, Callable, Dict, List, NamedTuple, Optional, Tuple
 
 from agents.tools.commons._apoio_colunas import validar_coluna
 
@@ -27,10 +29,11 @@ PALAVRAS_NORMAL = ("inteira", "normal", "autorizada")
 # Normal primeiro, depois Social, depois outros
 ORDEM_TIPOS = {"Normal": 0, "Social": 1, "Outros": 2}
 
+
 class _Colunas(NamedTuple):
     tarifa: str
     data: str
-    descricao: Optional[str]
+    descricao: str | None
 
 
 def _classificar_tipo_tarifa(descricao: str) -> str:
@@ -52,7 +55,7 @@ def _classificar_tipo_tarifa(descricao: str) -> str:
     return "Outros"
 
 
-def _detectar_coluna_por_conteudo(df: pd.DataFrame, palavras_chave: list) -> Optional[int]:
+def _detectar_coluna_por_conteudo(df: pd.DataFrame, palavras_chave: list) -> int | None:
     """
     Detecta coluna procurando por palavras-chave nos nomes das colunas
     e, se não achar, nos dados (primeiras 5 linhas).
@@ -96,10 +99,12 @@ def _usar_linha_como_cabecalho(df: pd.DataFrame, posicao: int) -> pd.DataFrame:
             novos_nomes.append(f"Col_{indice}")
 
     df.columns = novos_nomes
-    return df.iloc[posicao + 1:].reset_index(drop=True)
+    return df.iloc[posicao + 1 :].reset_index(drop=True)
 
 
-def _limpar_e_renomear_colunas(df: pd.DataFrame, linha_cabecalho: Optional[int] = None) -> pd.DataFrame:
+def _limpar_e_renomear_colunas(
+    df: pd.DataFrame, linha_cabecalho: int | None = None
+) -> pd.DataFrame:
     """
     Limpa e renomeia colunas.
 
@@ -118,7 +123,7 @@ def _limpar_e_renomear_colunas(df: pd.DataFrame, linha_cabecalho: Optional[int] 
     """
     logger.debug(f"Limpando colunas (antes: {len(df.columns)})")
 
-    df = df.dropna(axis=1, how='all')
+    df = df.dropna(axis=1, how="all")
     logger.debug(f"Colunas vazias removidas: {len(df.columns)} restantes")
 
     if linha_cabecalho is not None:
@@ -131,7 +136,9 @@ def _limpar_e_renomear_colunas(df: pd.DataFrame, linha_cabecalho: Optional[int] 
         media_tamanho = primeira_linha.astype(str).apply(len).mean()
 
         if media_tamanho > 20:
-            logger.debug(f"Primeira linha usada como cabeçalho (média: {media_tamanho:.0f} chars): {primeira_linha.values[:3]}")
+            logger.debug(
+                f"Primeira linha usada como cabeçalho (média: {media_tamanho:.0f} chars): {primeira_linha.values[:3]}"
+            )
             df = _usar_linha_como_cabecalho(df, 0)
 
     # "Unnamed": tenta deduzir o nome pelo conteúdo
@@ -142,7 +149,9 @@ def _limpar_e_renomear_colunas(df: pd.DataFrame, linha_cabecalho: Optional[int] 
             novos_nomes.append(col_str)
             continue
         amostra = df.iloc[:5, idx].dropna().unique()
-        novos_nomes.append(f"Col_{idx}_{str(amostra[0])[:30]}" if len(amostra) > 0 else f"Col_{idx}")
+        novos_nomes.append(
+            f"Col_{idx}_{str(amostra[0])[:30]}" if len(amostra) > 0 else f"Col_{idx}"
+        )
 
     df.columns = novos_nomes
     logger.debug(f"Colunas renomeadas: {novos_nomes}")
@@ -150,12 +159,24 @@ def _limpar_e_renomear_colunas(df: pd.DataFrame, linha_cabecalho: Optional[int] 
     return df
 
 
-def _registro(linha: Dict, cols: _Colunas, descricao_padrao: str, com_ano: bool = False) -> Dict:
+def _registro(
+    linha: dict, cols: _Colunas, descricao_padrao: str, com_ano: bool = False
+) -> dict:
     """Converte uma linha em registro de tarifa. `descricao_padrao` é usado se não houver coluna de descrição."""
     data = linha[cols.data]
-    descricao = str(linha[cols.descricao]).strip() if cols.descricao and cols.descricao in linha else descricao_padrao
-    tarifa = {"tipo": _classificar_tipo_tarifa(descricao), "tarifa": round(float(linha[cols.tarifa]), 2)}
-    datas = {"data_vigencia": data.strftime('%d/%m/%Y'), "data_vigencia_iso": data.strftime('%Y-%m-%d')}
+    descricao = (
+        str(linha[cols.descricao]).strip()
+        if cols.descricao and cols.descricao in linha
+        else descricao_padrao
+    )
+    tarifa = {
+        "tipo": _classificar_tipo_tarifa(descricao),
+        "tarifa": round(float(linha[cols.tarifa]), 2),
+    }
+    datas = {
+        "data_vigencia": data.strftime("%d/%m/%Y"),
+        "data_vigencia_iso": data.strftime("%Y-%m-%d"),
+    }
 
     if com_ano:
         return {**tarifa, **datas, "ano": int(data.year), "descricao": descricao}
@@ -175,27 +196,32 @@ def _tarifas_vigentes(registros: pd.DataFrame, cols: _Colunas):
 # CONSULTAS (cada uma recebe df já limpo, ordenado por data desc e com a coluna '_ano')
 # ============================================================
 
-def _consulta_atual(df: pd.DataFrame, cols: _Colunas, ano: Optional[int], path: str) -> Dict[str, Any]:
+
+def _consulta_atual(
+    df: pd.DataFrame, cols: _Colunas, ano: int | None, path: str
+) -> dict[str, Any]:
     tarifas, data = _tarifas_vigentes(df, cols)
     logger.debug(f"{len(tarifas)} tipo(s) de tarifa na data mais recente")
     return {
         "consulta_tipo": "atual",
         "tarifas": tarifas,
-        "data_vigencia": data.strftime('%d/%m/%Y'),
+        "data_vigencia": data.strftime("%d/%m/%Y"),
         "path": path,
         "sucesso": True,
     }
 
 
-def _consulta_ano(df: pd.DataFrame, cols: _Colunas, ano: Optional[int], path: str) -> Dict[str, Any]:
+def _consulta_ano(
+    df: pd.DataFrame, cols: _Colunas, ano: int | None, path: str
+) -> dict[str, Any]:
     if not ano:
         return {"erro": "Parâmetro 'ano' é obrigatório", "sucesso": False}
 
-    registros_ano = df[df['_ano'] == int(ano)]
+    registros_ano = df[df["_ano"] == int(ano)]
     if registros_ano.empty:
         return {
             "erro": f"Nenhuma tarifa encontrada para {int(ano)}",
-            "anos_disponiveis": [int(a) for a in sorted(df['_ano'].unique())],
+            "anos_disponiveis": [int(a) for a in sorted(df["_ano"].unique())],
             "sucesso": False,
         }
 
@@ -205,13 +231,15 @@ def _consulta_ano(df: pd.DataFrame, cols: _Colunas, ano: Optional[int], path: st
         "consulta_tipo": "ano",
         "ano": int(ano),
         "tarifas": tarifas,
-        "data_vigencia": data.strftime('%d/%m/%Y'),
+        "data_vigencia": data.strftime("%d/%m/%Y"),
         "path": path,
         "sucesso": True,
     }
 
 
-def _consulta_ultima_mudanca(df: pd.DataFrame, cols: _Colunas, ano: Optional[int], path: str) -> Dict[str, Any]:
+def _consulta_ultima_mudanca(
+    df: pd.DataFrame, cols: _Colunas, ano: int | None, path: str
+) -> dict[str, Any]:
     linha = df.iloc[0].to_dict()
     registro = _registro(linha, cols, "N/A")
     dias_desde = (pd.Timestamp.now() - linha[cols.data]).days
@@ -229,10 +257,14 @@ def _consulta_ultima_mudanca(df: pd.DataFrame, cols: _Colunas, ano: Optional[int
     }
 
 
-def _consulta_historico(df: pd.DataFrame, cols: _Colunas, ano: Optional[int], path: str) -> Dict[str, Any]:
+def _consulta_historico(
+    df: pd.DataFrame, cols: _Colunas, ano: int | None, path: str
+) -> dict[str, Any]:
     historico = [_registro(r, cols, "N/A", com_ano=True) for r in df.to_dict("records")]
     valores = [h["tarifa"] for h in historico]
-    logger.debug(f"{len(historico)} registros (menor: {min(valores):.2f}, maior: {max(valores):.2f})")
+    logger.debug(
+        f"{len(historico)} registros (menor: {min(valores):.2f}, maior: {max(valores):.2f})"
+    )
 
     return {
         "consulta_tipo": "historico",
@@ -245,7 +277,9 @@ def _consulta_historico(df: pd.DataFrame, cols: _Colunas, ano: Optional[int], pa
     }
 
 
-def _consulta_buscar_por_valor(df: pd.DataFrame, cols: _Colunas, ano: Optional[int], path: str) -> Dict[str, Any]:
+def _consulta_buscar_por_valor(
+    df: pd.DataFrame, cols: _Colunas, ano: int | None, path: str
+) -> dict[str, Any]:
     valor_max = ano  # Reutiliza parâmetro 'ano' como valor máximo
     if valor_max is None:
         return {
@@ -255,7 +289,9 @@ def _consulta_buscar_por_valor(df: pd.DataFrame, cols: _Colunas, ano: Optional[i
 
     valor_max = float(valor_max)
     # reordena de propósito: o sort não é estável e o desempate entre datas iguais faz parte da saída atual
-    resultados = df[df[cols.tarifa] <= valor_max].sort_values(by=cols.data, ascending=False)
+    resultados = df[df[cols.tarifa] <= valor_max].sort_values(
+        by=cols.data, ascending=False
+    )
 
     if resultados.empty:
         return {
@@ -266,7 +302,9 @@ def _consulta_buscar_por_valor(df: pd.DataFrame, cols: _Colunas, ano: Optional[i
             "sucesso": True,
         }
 
-    encontrados = [_registro(r, cols, "N/A", com_ano=True) for r in resultados.to_dict("records")]
+    encontrados = [
+        _registro(r, cols, "N/A", com_ano=True) for r in resultados.to_dict("records")
+    ]
     logger.debug(f"{len(encontrados)} registros <= R$ {valor_max:.2f}")
 
     return {
@@ -279,7 +317,7 @@ def _consulta_buscar_por_valor(df: pd.DataFrame, cols: _Colunas, ano: Optional[i
     }
 
 
-_CONSULTAS: Dict[str, Callable[..., Dict[str, Any]]] = {
+_CONSULTAS: dict[str, Callable[..., dict[str, Any]]] = {
     "atual": _consulta_atual,
     "ano": _consulta_ano,
     "ultima_mudanca": _consulta_ultima_mudanca,
@@ -290,10 +328,10 @@ _CONSULTAS: Dict[str, Callable[..., Dict[str, Any]]] = {
 
 def _definir_colunas(
     df: pd.DataFrame,
-    coluna_tarifa: Optional[str],
-    coluna_data: Optional[str],
-    coluna_descricao: Optional[str],
-) -> Tuple[Optional[_Colunas], List[str], Optional[Dict[str, Any]]]:
+    coluna_tarifa: str | None,
+    coluna_data: str | None,
+    coluna_descricao: str | None,
+) -> tuple[_Colunas | None, list[str], dict[str, Any] | None]:
     """
     Define quais colunas são a tarifa, a data de vigência e a descrição.
 
@@ -310,13 +348,19 @@ def _definir_colunas(
         ("descricao", coluna_descricao, PALAVRAS_DESCRICAO),
     )
 
-    nomes: Dict[str, Optional[str]] = {}
-    indices_testados: Dict[str, Optional[int]] = {"tarifa": None, "data": None, "descricao": None}
-    inferidas: List[str] = []
+    nomes: dict[str, str | None] = {}
+    indices_testados: dict[str, int | None] = {
+        "tarifa": None,
+        "data": None,
+        "descricao": None,
+    }
+    inferidas: list[str] = []
 
     for rotulo, informada, palavras in candidatas:
         if informada:
-            nome, erro = validar_coluna(df, informada, f"Coluna de {rotulo} '{{}}' não encontrada")
+            nome, erro = validar_coluna(
+                df, informada, f"Coluna de {rotulo} '{{}}' não encontrada"
+            )
             if erro:
                 return None, [], erro
             nomes[rotulo] = nome
@@ -331,37 +375,55 @@ def _definir_colunas(
             inferidas.append(rotulo)
 
     if nomes["tarifa"] is None:
-        logger.error(f"Coluna de TARIFA não encontrada (palavras: {PALAVRAS_TARIFA}). Colunas: {list(df.columns)}")
-        return None, [], {
-            "erro": "Coluna de tarifa não encontrada no arquivo",
-            "colunas_detectadas": list(df.columns),
-            "indices_testados": indices_testados,
-            "dica": "Informe coluna_tarifa com o nome exato da coluna (veja as linhas com 'preview')",
-            "sucesso": False,
-        }
+        logger.error(
+            f"Coluna de TARIFA não encontrada (palavras: {PALAVRAS_TARIFA}). Colunas: {list(df.columns)}"
+        )
+        return (
+            None,
+            [],
+            {
+                "erro": "Coluna de tarifa não encontrada no arquivo",
+                "colunas_detectadas": list(df.columns),
+                "indices_testados": indices_testados,
+                "dica": "Informe coluna_tarifa com o nome exato da coluna (veja as linhas com 'preview')",
+                "sucesso": False,
+            },
+        )
 
     if nomes["data"] is None:
-        logger.error(f"Coluna de DATA não encontrada (palavras: {PALAVRAS_DATA}). Colunas: {list(df.columns)}")
-        return None, [], {
-            "erro": "Coluna de data de vigência não encontrada",
-            "colunas_detectadas": list(df.columns),
-            "dica": "Informe coluna_data com o nome exato da coluna de início da vigência (veja as linhas com 'preview')",
-            "sucesso": False,
-        }
+        logger.error(
+            f"Coluna de DATA não encontrada (palavras: {PALAVRAS_DATA}). Colunas: {list(df.columns)}"
+        )
+        return (
+            None,
+            [],
+            {
+                "erro": "Coluna de data de vigência não encontrada",
+                "colunas_detectadas": list(df.columns),
+                "dica": "Informe coluna_data com o nome exato da coluna de início da vigência (veja as linhas com 'preview')",
+                "sucesso": False,
+            },
+        )
 
-    return _Colunas(tarifa=nomes["tarifa"], data=nomes["data"], descricao=nomes["descricao"]), inferidas, None
+    return (
+        _Colunas(
+            tarifa=nomes["tarifa"], data=nomes["data"], descricao=nomes["descricao"]
+        ),
+        inferidas,
+        None,
+    )
 
 
 def executar_leitura_tarifa(
     df: pd.DataFrame,
     consulta_tipo: str,
-    ano: Optional[int] = None,
+    ano: int | None = None,
     path: str = "",
-    coluna_tarifa: Optional[str] = None,
-    coluna_data: Optional[str] = None,
-    coluna_descricao: Optional[str] = None,
-    linha_cabecalho: Optional[int] = None,
-) -> Dict[str, Any]:
+    coluna_tarifa: str | None = None,
+    coluna_data: str | None = None,
+    coluna_descricao: str | None = None,
+    linha_cabecalho: int | None = None,
+) -> dict[str, Any]:
     """
     Lê tarifas históricas de concessionárias (MetrôRio, CCR Barcas, SuperVia).
     As colunas podem ser informadas (recomendado) ou inferidas.
@@ -396,14 +458,22 @@ def executar_leitura_tarifa(
 
     df = _limpar_e_renomear_colunas(df, linha_cabecalho)
 
-    cols, inferidas, erro = _definir_colunas(df, coluna_tarifa, coluna_data, coluna_descricao)
+    cols, inferidas, erro = _definir_colunas(
+        df, coluna_tarifa, coluna_data, coluna_descricao
+    )
     if erro:
         return erro
-    logger.info(f"Colunas: tarifa={cols.tarifa} | data={cols.data} | descrição={cols.descricao}")
+    logger.info(
+        f"Colunas: tarifa={cols.tarifa} | data={cols.data} | descrição={cols.descricao}"
+    )
 
     # Preparar dados: data e tarifa válidas
-    df = df.assign(**{cols.data: pd.to_datetime(df[cols.data], errors='coerce', format="%d/%m/%Y")}).dropna(subset=[cols.data])
-    df = df.assign(**{cols.tarifa: pd.to_numeric(df[cols.tarifa], errors='coerce')}).dropna(subset=[cols.tarifa])
+    df = df.assign(
+        **{cols.data: pd.to_datetime(df[cols.data], errors="coerce", format="%d/%m/%Y")}
+    ).dropna(subset=[cols.data])
+    df = df.assign(
+        **{cols.tarifa: pd.to_numeric(df[cols.tarifa], errors="coerce")}
+    ).dropna(subset=[cols.tarifa])
     logger.debug(f"Registros válidos: {len(df)}")
 
     if df.empty:
@@ -413,7 +483,9 @@ def executar_leitura_tarifa(
             "sucesso": False,
         }
 
-    df = df.assign(_ano=df[cols.data].dt.year).sort_values(by=cols.data, ascending=False)
+    df = df.assign(_ano=df[cols.data].dt.year).sort_values(
+        by=cols.data, ascending=False
+    )
 
     consulta = _CONSULTAS.get(consulta_tipo)
     if consulta is None:
@@ -427,7 +499,11 @@ def executar_leitura_tarifa(
     resultado = consulta(df, cols, ano, path)
 
     if resultado.get("sucesso"):
-        resultado["colunas_usadas"] = {"tarifa": cols.tarifa, "data": cols.data, "descricao": cols.descricao}
+        resultado["colunas_usadas"] = {
+            "tarifa": cols.tarifa,
+            "data": cols.data,
+            "descricao": cols.descricao,
+        }
         if inferidas:
             resultado["aviso"] = (
                 f"Colunas inferidas automaticamente: {', '.join(inferidas)}. Se não forem as certas, chame de novo "
