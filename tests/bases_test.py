@@ -1,7 +1,8 @@
-import requests
-import os
-from dotenv import load_dotenv
 import json
+import os
+
+import requests
+from dotenv import load_dotenv
 
 """
 Teste de bases

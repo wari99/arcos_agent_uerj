@@ -1,16 +1,17 @@
-import streamlit as st
 import os
-import sys
-import yaml
 import re
+import sys
 from datetime import datetime
+
+import streamlit as st
+import yaml
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from agents.agent import agent_memory
-from ui.streamlit_progress import executar_com_progresso
-from db.sessions import get_session_manager
 from agents.tools.commons.utils import limpar_pasta_temporaria_manual
+from db.sessions import get_session_manager
+from ui.streamlit_progress import executar_com_progresso
 
 session_manager = get_session_manager()
 
@@ -113,23 +114,22 @@ for msg in st.session_state.messages:
     if msg["role"] == "user":
         st.markdown(
             f"<div class='chat-message user-msg'><b>{config['messages']['you']}:</b><br>{msg['content']}</div>",
-            unsafe_allow_html=True
+            unsafe_allow_html=True,
         )
 
     elif msg["role"] == "assistant":
         st.markdown(
             f"<div class='chat-message agent-msg'><b>{config['messages']['arcos']}:</b><br>{msg['content']}</div>",
-            unsafe_allow_html=True
+            unsafe_allow_html=True,
         )
         # Mostrar gráfico dentro da coluna de mensagem
-        if "grafico" in msg and msg["grafico"]:
-            if os.path.exists(msg["grafico"]):
-                st.image(msg["grafico"], use_container_width=True)
+        if msg.get("grafico") and os.path.exists(msg["grafico"]):
+            st.image(msg["grafico"], use_container_width=True)
 
     elif msg["role"] == "error":
         st.markdown(
             f"<div class='chat-message error-msg'><b>{config['messages']['error_label']}:</b><br>{msg['content']}</div>",
-            unsafe_allow_html=True
+            unsafe_allow_html=True,
         )
 
 # Mostrar status da sessão
@@ -140,7 +140,7 @@ with st.form("chat_form", clear_on_submit=True):
     user_input = st.text_input(
         config["messages"]["input_placeholder"],
         label_visibility="collapsed",
-        disabled=not st.session_state.session_active
+        disabled=not st.session_state.session_active,
     )
     submitted = st.form_submit_button(config["messages"]["button_label"])
 
@@ -148,76 +148,86 @@ if submitted and user_input:
     # Verificar comando /sair
     if user_input.strip().lower() == config["commands"]["exit"]["trigger"]:
         timestamp = datetime.now().strftime("%H:%M:%S")
-        
-        st.session_state.messages.append({
-            "role": "user",
-            "content": user_input,
-            "timestamp": timestamp
-        })
-        
-        st.session_state.messages.append({
-            "role": "assistant",
-            "content": config["messages"]["goodbye"],
-            "timestamp": timestamp,
-            "grafico": None
-        })
-        
+
+        st.session_state.messages.append(
+            {"role": "user", "content": user_input, "timestamp": timestamp}
+        )
+
+        st.session_state.messages.append(
+            {
+                "role": "assistant",
+                "content": config["messages"]["goodbye"],
+                "timestamp": timestamp,
+                "grafico": None,
+            }
+        )
+
         # Limpar pasta temporária
         try:
             resultado_limpeza = limpar_pasta_temporaria_manual()
-            mensagem_limpeza = resultado_limpeza.get('mensagem', 'Limpeza concluída!')
-            cleanup_msg = config["messages"]["cleanup_success"].format(mensagem=mensagem_limpeza)
-            st.session_state.messages.append({
-                "role": "assistant",
-                "content": cleanup_msg,
-                "timestamp": datetime.now().strftime("%H:%M:%S"),
-                "grafico": None
-            })
+            mensagem_limpeza = resultado_limpeza.get("mensagem", "Limpeza concluída!")
+            cleanup_msg = config["messages"]["cleanup_success"].format(
+                mensagem=mensagem_limpeza
+            )
+            st.session_state.messages.append(
+                {
+                    "role": "assistant",
+                    "content": cleanup_msg,
+                    "timestamp": datetime.now().strftime("%H:%M:%S"),
+                    "grafico": None,
+                }
+            )
         except Exception as e:
             cleanup_error_msg = config["messages"]["cleanup_error"].format(erro=str(e))
-            st.session_state.messages.append({
-                "role": "error",
-                "content": cleanup_error_msg,
-                "timestamp": datetime.now().strftime("%H:%M:%S")
-            })
-        
+            st.session_state.messages.append(
+                {
+                    "role": "error",
+                    "content": cleanup_error_msg,
+                    "timestamp": datetime.now().strftime("%H:%M:%S"),
+                }
+            )
+
         # ✅ ADICIONADO: Exportar sessão ao sair
         try:
             session_manager.export_session_by_id(st.session_state.thread_id)
             export_msg = "💾 Sessão exportada com sucesso!"
-            st.session_state.messages.append({
-                "role": "assistant",
-                "content": export_msg,
-                "timestamp": datetime.now().strftime("%H:%M:%S"),
-                "grafico": None
-            })
+            st.session_state.messages.append(
+                {
+                    "role": "assistant",
+                    "content": export_msg,
+                    "timestamp": datetime.now().strftime("%H:%M:%S"),
+                    "grafico": None,
+                }
+            )
         except Exception as e:
-            export_error_msg = f"❌ Erro ao exportar sessão: {str(e)}"
-            st.session_state.messages.append({
-                "role": "error",
-                "content": export_error_msg,
-                "timestamp": datetime.now().strftime("%H:%M:%S")
-            })
-        
+            export_error_msg = f"❌ Erro ao exportar sessão: {e!s}"
+            st.session_state.messages.append(
+                {
+                    "role": "error",
+                    "content": export_error_msg,
+                    "timestamp": datetime.now().strftime("%H:%M:%S"),
+                }
+            )
+
         st.session_state.session_active = False
         st.rerun()
-    
+
     # Verificar comando /reiniciar
     elif user_input.strip().lower() == config["commands"]["restart"]["trigger"]:
         st.session_state.messages = []
-        st.session_state.thread_id = f"streamlit-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        st.session_state.thread_id = (
+            f"streamlit-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        )
         st.session_state.session_active = True
         st.rerun()
-    
+
     # Processar mensagem normal
     elif st.session_state.session_active:
         timestamp = datetime.now().strftime("%H:%M:%S")
 
-        st.session_state.messages.append({
-            "role": "user",
-            "content": user_input,
-            "timestamp": timestamp
-        })
+        st.session_state.messages.append(
+            {"role": "user", "content": user_input, "timestamp": timestamp}
+        )
 
         st.session_state.pending_user_input = user_input
         st.rerun()
@@ -235,11 +245,13 @@ if st.session_state.pending_user_input:
         def _atualizar_progresso(linhas, atividade, segundos):
             status.update(label=f"{atividade}… ({segundos:.0f}s)")
             icones = {"rodando": "⏳", "ok": "☑️", "erro": "⚠️"}
-            etapas.markdown("\n".join(
-                f"{'&nbsp;' * 6 * l['nivel']}{icones[l['estado']]} {l['texto']}"
-                + (f" · {l['duracao']:.1f}s" if l["duracao"] is not None else "")
-                for l in linhas
-            ))
+            etapas.markdown(
+                "\n".join(
+                    f"{'&nbsp;' * 6 * l['nivel']}{icones[l['estado']]} {l['texto']}"
+                    + (f" · {l['duracao']:.1f}s" if l["duracao"] is not None else "")
+                    for l in linhas
+                )
+            )
 
         try:
             resultado = executar_com_progresso(
@@ -252,10 +264,10 @@ if st.session_state.pending_user_input:
             resposta = resultado["messages"][-1].text.strip()
 
             grafico_path = None
-            
+
             # Procura por padrões de caminho com .png
-            matches = re.findall(r'[/\w\-._]+\.png', resposta)
-            
+            matches = re.findall(r"[/\w\-._]+\.png", resposta)
+
             if matches:
                 for match in matches:
                     # Verifica se é um caminho absoluto ou relativo válido
@@ -267,23 +279,23 @@ if st.session_state.pending_user_input:
                         grafico_path = os.path.join(os.getcwd(), match)
                         break
 
-            st.session_state.messages.append({
-                "role": "assistant",
-                "content": resposta,
-                "timestamp": timestamp,
-                "grafico": grafico_path
-            })
-            
+            st.session_state.messages.append(
+                {
+                    "role": "assistant",
+                    "content": resposta,
+                    "timestamp": timestamp,
+                    "grafico": grafico_path,
+                }
+            )
+
             # ✅ ADICIONADO: Salvar no banco com timestamp
             session_manager.add_message(st.session_state.thread_id, "user", user_input)
             session_manager.add_message(st.session_state.thread_id, "ai", resposta)
 
         except Exception as e:
             status.update(state="error")
-            st.session_state.messages.append({
-                "role": "error",
-                "content": str(e),
-                "timestamp": timestamp
-            })
+            st.session_state.messages.append(
+                {"role": "error", "content": str(e), "timestamp": timestamp}
+            )
 
     st.rerun()

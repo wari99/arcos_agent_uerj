@@ -1,5 +1,7 @@
 from langchain_core.tools import tool
+
 from agents.sub_agents.analysis.agent import executar
+
 
 @tool("analisar_arquivos")
 def analisar_arquivos(pedido: str) -> str:

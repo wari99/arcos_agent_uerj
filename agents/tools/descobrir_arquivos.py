@@ -1,5 +1,7 @@
 from langchain_core.tools import tool
+
 from agents.sub_agents.discovery.agent import executar
+
 
 @tool("descobrir_arquivos")
 def descobrir_arquivos(pedido: str) -> str:

@@ -10,8 +10,10 @@ logger = get_logger("documents")
 def cabecalho_fonte(f: Fonte) -> str:
     linhas = [
         f"ARQUIVO: {f.nome}",
-        f"BASE: {f.package_id} | {f.base.get('titulo', '')} | órgão: {f.base.get('orgao') or 'n/d'} "
-        f"| atualizada em: {f.base.get('atualizado_em') or 'n/d'}",
+        (
+            f"BASE: {f.package_id} | {f.base.get('titulo', '')} | órgão: {f.base.get('orgao') or 'n/d'} "
+            f"| atualizada em: {f.base.get('atualizado_em') or 'n/d'}"
+        ),
         f"TIPO: {f.tipo} | TAMANHO: {f.tamanho_mb} MB",
     ]
     return "\n".join(linhas)
@@ -41,9 +43,13 @@ def mapear_documento(package_id: str, arquivo: str) -> str:
                 f"escaneado: {'SIM (precisa de interpretar_pagina)' if m['escaneado'] else 'não'}"
             )
             saida.append(f"PÁGINAS SEM TEXTO: {_lista(m['sem_texto'])}")
-            saida.append(f"PÁGINAS COM TABELA (verificadas até a {m['tabelas_analisadas_ate']}): {_lista(m['com_tabelas'])}")
+            saida.append(
+                f"PÁGINAS COM TABELA (verificadas até a {m['tabelas_analisadas_ate']}): {_lista(m['com_tabelas'])}"
+            )
             saida.append(f"PÁGINAS COM IMAGENS: {_lista(m['com_imagens'])}")
-            saida.append(f"PÁGINAS COM POSSÍVEL GRÁFICO (heurística): {_lista(m['possivel_grafico'])}")
+            saida.append(
+                f"PÁGINAS COM POSSÍVEL GRÁFICO (heurística): {_lista(m['possivel_grafico'])}"
+            )
             if m["sumario"]:
                 saida.append("SUMÁRIO DO PDF:\n" + "\n".join(m["sumario"]))
             if m["inicio"]:
@@ -61,15 +67,22 @@ def mapear_documento(package_id: str, arquivo: str) -> str:
                     extras.append(f"{a['imagens']} imagem(ns)")
                 if not a["visivel"]:
                     extras.append("oculta")
-                saida.append(f"- aba '{a['aba']}': {a['dimensoes']}" + (f" ({', '.join(extras)})" if extras else ""))
+                saida.append(
+                    f"- aba '{a['aba']}': {a['dimensoes']}"
+                    + (f" ({', '.join(extras)})" if extras else "")
+                )
         elif f.tipo == "csv":
-            saida.append("CSV: tabela de dados. Para contas e filtros, o caminho é a análise de dados (analisar_arquivos).")
+            saida.append(
+                "CSV: tabela de dados. Para contas e filtros, o caminho é a análise de dados (analisar_arquivos)."
+            )
         else:
-            saida.append(f"Tipo '{f.tipo}' não suportado para leitura (suportados: pdf, xlsx e csv).")
+            saida.append(
+                f"Tipo '{f.tipo}' não suportado para leitura (suportados: pdf, xlsx e csv)."
+            )
 
         return "\n".join(saida)
     except ErroDocumento as e:
         return f"ERRO: {e}"
     except Exception as e:
-        logger.error(f"mapear_documento falhou: {e}", exc_info=True)
+        logger.exception("mapear_documento falhou")
         return f"ERRO inesperado ao mapear o documento: {e}"

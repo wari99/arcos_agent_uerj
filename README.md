@@ -1,9 +1,11 @@
-<h1 align="center">  ARCOS-RJ
+<h1 align="center">ARCOS-RJ</h1>
 
 ![GitHub Status](https://img.shields.io/badge/Status-Work%20In%20Progress-yellow)
 ![Python](https://img.shields.io/badge/python-=3.13.12-blue?logo=python)
 ![Langchain](https://img.shields.io/badge/LangChain-1.0.7-ffffff?logo=langchain&logoColor=green)
 ![Google Gemini](https://img.shields.io/badge/Google%20Gemini-3.8.Flash-886FBF?logo=googlegemini&logoColor=fff)
+![Pre-Commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)
+![UV](https://img.shields.io/badge/uv-package_manager-DE5FE9)
 
 ---
 
@@ -130,8 +132,10 @@ Dessa forma, tanto um usuário leigo quanto um usuário mais experiente e conhec
 
 - [uv](https://docs.astral.sh/uv/getting-started/installation/)
 - [make](https://www.gnu.org/software/make/)
-- LLM Model: chave da **Gemini API** *ou* projeto no **Google Cloud (Vertex AI)** *ou* **Ollama** rodando localmente. Para outras LLMs, modificar em model.py
-- [pre-commit](https://pre-commit.com/) para modificações
+- LLM Model: chave da [**Gemini API**](https://aistudio.google.com/app/api-keys) *ou* projeto no [**Google Cloud (Vertex AI)**](https://cloud.google.com/products/gemini-enterprise-agent-platform) *ou* [**Ollama**](https://ollama.com/library/qwen) rodando localmente. Para outras LLMs, adicionar condicional para suporte à sua LLM em **model.py** e modificar o **.env**, caso necessário.
+- [pre-commit](https://pre-commit.com/)*
+
+*para modificações no projeto
 
 ### II. Clonar o repositório
 
@@ -139,44 +143,45 @@ Dessa forma, tanto um usuário leigo quanto um usuário mais experiente e conhec
 git clone <url-do-repositorio>
 ```
 
-### III. Criar o ambiente e instalar as dependências
-
-```bash
-make create-env
-```
-
-Cria o `.venv` com o Python 3.13.12 e instala as versões definidas em `pyproject.toml` e `uv.lock`. Ative o ambiente com:
-
-```bash
-source .venv/bin/activate
-```
-
-### IV. Configurar as variáveis de ambiente
+### III. Configurar as variáveis de ambiente
 
 ```bash
 cp .env.example .env
 ```
 
-Abra o `.env` e preencha:
+Preencher com suas variáveis de ambiente que conectam o agente a sua LLM de preferência. Referência:
 
 | Variável | Uso |
 |---|---|
-| `ROOT_AGENT_MODEL` | Nome do modelo. Se contiver `gemini`, usa Gemini; senão, usa Ollama |
-| `GEMINI_API_KEY` | Chave da Gemini API. Se ficar vazia, usa Vertex AI |
-| `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION` | Só para Vertex AI |
-| `OLLAMA_BASE_URL` | Somente para Ollama (padrão `http://localhost:11434`) |
-| `URL_*` | Endpoints da API de Dados Abertos do RJ. Não modificar.  |
+| `ROOT_AGENT_MODEL` | Nome do modelo. Se o nome contiver `gemini`, aponta para Gemini; senão, aponta para Ollama |
+| `GEMINI_API_KEY` | Chave da Gemini API. Se ficar vazia, usa Vertex AI atrelado a um projeto e região |
+| `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION` | Só para Vertex AI, se usar API_KEY do Gemini, não preencha e/ou comente essa linha |
+| `OLLAMA_BASE_URL` | Somente para Ollama (padrão `http://localhost:11434`). Se utilizar Gemini, desconsidere e/ou comente a linha |
+| `URL_*` | Endpoints da API de Dados Abertos do RJ. **Não modificar!!!**  |
 
+### IV. Criar o ambiente e instalar as dependências
+
+Criação do ambiente virtual Python e instala as versões definidas em `pyproject.toml` e `uv.lock`.
+
+```bash
+make create-env
+```
+
+E ative o ambiente com:
+
+```bash
+source .venv/bin/activate
+```
 
 ### V. Executar o Agente
 
-Chat no terminal (digite `/sair` para encerrar):
+Terminal (digite `/sair` para interromper a execução do agente ou apertar `CTRL+C`):
 
 ```bash
 make run
 ```
 
-Interface web (Streamlit):
+Interface web simples (Streamlit):
 
 ```bash
 make web
@@ -231,6 +236,3 @@ URL_CONSULTAR_PROCESSAR_ARQUIVO=https://dadosabertos.rj.gov.br/api/3/action/pack
 **Departamento de Ciência da Computação**
 **Instituto de Matemática e Estatística (IME)**
 **Universidade do Estado do Rio de Janeiro (UERJ)**
-
-
----

@@ -1,11 +1,13 @@
-#evitar que um subagente fique em laço de tentativas
+# evitar que um subagente fique em laço de tentativas
 LIMITE_PASSOS = 40
 
 import logging
 import re
 import time
+
 from langchain_core.messages import HumanMessage
 from langgraph.errors import GraphRecursionError
+
 
 def _ferramentas_chamadas(mensagens) -> list:
     """Nomes das ferramentas que o subagente chamou, na ordem (inclui repetições, ex.: paginação)."""
@@ -16,7 +18,9 @@ def _ferramentas_chamadas(mensagens) -> list:
         for tc in (getattr(m, "tool_calls", None) or [])
     ]
 
+
 _CAMINHO_PNG = re.compile(r"""[^\s'"]+\.png""")
+
 
 def _graficos_gerados(mensagens) -> list:
     """Caminhos .png devolvidos pelas ferramentas (o texto final do subagente costuma omiti-los)."""
@@ -24,9 +28,12 @@ def _graficos_gerados(mensagens) -> list:
     for m in mensagens:
         if getattr(m, "type", None) == "tool":
             for c in _CAMINHO_PNG.findall(str(m.content)):
-                if c.startswith("/") and c not in caminhos:  # só caminhos absolutos (ignora o nome solto do arquivo)
+                if (
+                    c.startswith("/") and c not in caminhos
+                ):  # só caminhos absolutos (ignora o nome solto do arquivo)
                     caminhos.append(c)
     return caminhos
+
 
 def delegar(subagente, pedido: str, logger: logging.Logger) -> str:
     """Invoca o subagente e devolve só o texto final (nunca vazio)."""
@@ -39,7 +46,9 @@ def delegar(subagente, pedido: str, logger: logging.Logger) -> str:
         )
         texto = resultado["messages"][-1].text.strip()
     except GraphRecursionError:
-        logger.error(f"interrompido após {time.perf_counter() - inicio:.1f}s: limite de {LIMITE_PASSOS} passos")
+        logger.error(
+            f"interrompido após {time.perf_counter() - inicio:.1f}s: limite de {LIMITE_PASSOS} passos"
+        )
         return (
             "Erro ao executar a consulta: o subagente excedeu o limite de passos sem concluir. "
             "Refaça o pedido com mais detalhes (package_id exato, nome do arquivo)."

@@ -13,11 +13,19 @@ from agents.tools.analisar_arquivos import analisar_arquivos
 from agents.tools.descobrir_arquivos import descobrir_arquivos
 from agents.tools.get_current_date import get_current_date
 
-SUPERVISOR_PROMPT = load_prompt_from_markdown(str(Path(__file__).parent / "prompts" / "supervisor"))
+SUPERVISOR_PROMPT = load_prompt_from_markdown(
+    str(Path(__file__).parent / "prompts" / "supervisor")
+)
 
 agent_memory = create_agent(
     model=model,
     system_prompt=f"{ROOT_PROMPT}\n\n{SUPERVISOR_PROMPT}",
-    tools=[buscar_infos_base, descobrir_arquivos, analisar_arquivos, consultar_documentos, get_current_date],
+    tools=[
+        buscar_infos_base,
+        descobrir_arquivos,
+        analisar_arquivos,
+        consultar_documentos,
+        get_current_date,
+    ],
     checkpointer=InMemorySaver(),
 )

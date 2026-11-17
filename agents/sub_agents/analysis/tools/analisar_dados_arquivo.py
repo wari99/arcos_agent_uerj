@@ -13,13 +13,16 @@ Aqui só ligamos cada nome de operação à função que a executa (veja _OPERAC
 """
 
 import traceback
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Literal, Optional, get_args
+from typing import Any, Literal, get_args
 
 from langchain.tools import tool
 from pydantic import BaseModel, Field, field_validator
 
-from agents.sub_agents.analysis.tools.gerenciar_cache_sessao import obter_arquivos_para_analise
+from agents.sub_agents.analysis.tools.gerenciar_cache_sessao import (
+    obter_arquivos_para_analise,
+)
 from agents.tools.commons._operacoes_basicas import (
     executar_contar_linhas,
     executar_estatistica,
@@ -44,11 +47,21 @@ from agents.tools.commons.settings import FAIXAS_HORARIAS
 from agents.tools.commons.utils import obter_pasta_temporaria
 
 Operacao = Literal[
-    "contar_linhas", "mostrar_colunas", "preview",
-    "media", "soma", "max", "min",
-    "valores_unicos", "agrupar_valores_unicos",
-    "contar_por_valor", "contar_unicos", "agrupar_e_somar",
-    "filtrar_por_turno", "contar_por_turno", "comparar_por_turno",
+    "contar_linhas",
+    "mostrar_colunas",
+    "preview",
+    "media",
+    "soma",
+    "max",
+    "min",
+    "valores_unicos",
+    "agrupar_valores_unicos",
+    "contar_por_valor",
+    "contar_unicos",
+    "agrupar_e_somar",
+    "filtrar_por_turno",
+    "contar_por_turno",
+    "comparar_por_turno",
     "leitura_tarifa",
 ]
 
@@ -63,14 +76,36 @@ _EXIGIDOS = {
 
 _EXEMPLOS = {
     "valores_unicos": {"operation": "valores_unicos", "coluna": "Linha"},
-    "agrupar_valores_unicos": {"operation": "agrupar_valores_unicos", "coluna": "Linha"},
-    "contar_por_valor": {"operation": "contar_por_valor", "coluna": "Modal Operadora", "valor": "ÔNIBUS"},
-    "contar_unicos": {"operation": "contar_unicos", "coluna_alvo": "Nº Carro", "coluna": "Sindicato", "valor": "SINTERJ"},
-    "agrupar_e_somar": {"operation": "agrupar_e_somar", "coluna": "Modal Operadora", "valor": "ÔNIBUS", "coluna_soma": "Qtd. Transações"},
+    "agrupar_valores_unicos": {
+        "operation": "agrupar_valores_unicos",
+        "coluna": "Linha",
+    },
+    "contar_por_valor": {
+        "operation": "contar_por_valor",
+        "coluna": "Modal Operadora",
+        "valor": "ÔNIBUS",
+    },
+    "contar_unicos": {
+        "operation": "contar_unicos",
+        "coluna_alvo": "Nº Carro",
+        "coluna": "Sindicato",
+        "valor": "SINTERJ",
+    },
+    "agrupar_e_somar": {
+        "operation": "agrupar_e_somar",
+        "coluna": "Modal Operadora",
+        "valor": "ÔNIBUS",
+        "coluna_soma": "Qtd. Transações",
+    },
 }
 
 # Operações cujo filtro (coluna + valor) é opcional, mas os dois precisam vir juntos
-_OPERACOES_COM_FILTRO_OPCIONAL = ("contar_unicos", "filtrar_por_turno", "contar_por_turno", "comparar_por_turno")
+_OPERACOES_COM_FILTRO_OPCIONAL = (
+    "contar_unicos",
+    "filtrar_por_turno",
+    "contar_por_turno",
+    "comparar_por_turno",
+)
 
 # Coluna de data usada nas operações de turno quando o modelo não informa outra
 COLUNA_DATA_PADRAO = "Data da Transação"
@@ -81,64 +116,77 @@ class AnalisarArgs(BaseModel):
 
     package_id: str = Field(description="id da base (ex: 'setram_sbe')")
     operation: Operacao = Field("contar_linhas", description="operação a executar")
-    file_filter: str = Field("", description="parte do nome do arquivo (ex: '2025_12_20') ou nome completo")
-    coluna: Optional[str] = Field(
+    file_filter: str = Field(
+        "", description="parte do nome do arquivo (ex: '2025_12_20') ou nome completo"
+    )
+    coluna: str | None = Field(
         None,
         description="coluna sobre a qual a operação age. Obrigatória em valores_unicos, agrupar_valores_unicos, "
-                    "contar_por_valor e agrupar_e_somar. Opcional (filtro) em contar_unicos, filtrar_por_turno, "
-                    "contar_por_turno e comparar_por_turno, onde deve vir junto com 'valor'",
+        "contar_por_valor e agrupar_e_somar. Opcional (filtro) em contar_unicos, filtrar_por_turno, "
+        "contar_por_turno e comparar_por_turno, onde deve vir junto com 'valor'",
     )
-    valor: Optional[str] = Field(
+    valor: str | None = Field(
         None,
         description="valor procurado em 'coluna' (busca parcial, sem diferenciar maiúsculas; ex: 'Idoso'). "
-                    "Obrigatório em contar_por_valor e agrupar_e_somar",
+        "Obrigatório em contar_por_valor e agrupar_e_somar",
     )
-    coluna_soma: Optional[str] = Field(
-        None, description="coluna numérica a somar (ex: 'Qtd. Transações'). Obrigatória em agrupar_e_somar"
+    coluna_soma: str | None = Field(
+        None,
+        description="coluna numérica a somar (ex: 'Qtd. Transações'). Obrigatória em agrupar_e_somar",
     )
-    coluna_alvo: Optional[str] = Field(
+    coluna_alvo: str | None = Field(
         None,
         description="coluna cujos valores DISTINTOS serão contados (ex: 'Nº Carro'). Obrigatória em contar_unicos; "
-                    "para contar só dentro de um grupo, informe também 'coluna' e 'valor' (o filtro)",
+        "para contar só dentro de um grupo, informe também 'coluna' e 'valor' (o filtro)",
     )
-    coluna_data: Optional[str] = Field(
+    coluna_data: str | None = Field(
         None,
         description="coluna com data. Nas operações de turno: data e hora da transação (padrão: 'Data da Transação'). "
-                    "Em leitura_tarifa: coluna com o início da vigência da tarifa",
+        "Em leitura_tarifa: coluna com o início da vigência da tarifa",
     )
-    turno: Optional[str] = Field(
-        None, description="só em filtrar_por_turno: 0=Madrugada, 1=Manhã, 2=Tarde, 3=Noite ou 'todos' (padrão)"
+    turno: str | None = Field(
+        None,
+        description="só em filtrar_por_turno: 0=Madrugada, 1=Manhã, 2=Tarde, 3=Noite ou 'todos' (padrão)",
     )
-    limite: Optional[int] = Field(
+    limite: int | None = Field(
         None,
         description="itens por página. Só em valores_unicos (padrão 15) e agrupar_valores_unicos "
-                    "(padrão 10 = top 10; máximo 100 por chamada)",
+        "(padrão 10 = top 10; máximo 100 por chamada)",
     )
     offset: int = Field(
         0,
         description="quantos itens pular. Só em valores_unicos e agrupar_valores_unicos "
-                    "(ex.: offset=10 em agrupar_valores_unicos traz do 11º ao 20º lugar)",
+        "(ex.: offset=10 em agrupar_valores_unicos traz do 11º ao 20º lugar)",
     )
     consulta_tipo: str = Field(
-        "atual", description="só em leitura_tarifa: atual, ano, ultima_mudanca, historico ou buscar_por_valor"
+        "atual",
+        description="só em leitura_tarifa: atual, ano, ultima_mudanca, historico ou buscar_por_valor",
     )
-    ano: Optional[int] = Field(None, description="só em leitura_tarifa: ano da consulta")
-    coluna_tarifa: Optional[str] = Field(
-        None, description="só em leitura_tarifa: coluna com o valor da tarifa (ex: 'Tarifa Autorizada (R$)')"
+    ano: int | None = Field(None, description="só em leitura_tarifa: ano da consulta")
+    coluna_tarifa: str | None = Field(
+        None,
+        description="só em leitura_tarifa: coluna com o valor da tarifa (ex: 'Tarifa Autorizada (R$)')",
     )
-    coluna_descricao: Optional[str] = Field(
+    coluna_descricao: str | None = Field(
         None,
         description="só em leitura_tarifa: coluna que identifica ou descreve cada tarifa "
-                    "(ex: 'Linha - Trajeto', 'Descrição', 'Deliberação'). Opcional",
+        "(ex: 'Linha - Trajeto', 'Descrição', 'Deliberação'). Opcional",
     )
-    linha_cabecalho: Optional[int] = Field(
+    linha_cabecalho: int | None = Field(
         None,
         description="só em leitura_tarifa: posição (0 = primeira linha mostrada no 'preview') da linha que contém "
-                    "os nomes reais das colunas, quando a planilha tem títulos antes do cabeçalho. Opcional",
+        "os nomes reais das colunas, quando a planilha tem títulos antes do cabeçalho. Opcional",
     )
 
     @field_validator(
-        "coluna", "valor", "coluna_soma", "coluna_alvo", "coluna_data", "turno", "coluna_tarifa", "coluna_descricao",
+        "coluna",
+        "valor",
+        "coluna_soma",
+        "coluna_alvo",
+        "coluna_data",
+        "turno",
+        "coluna_tarifa",
+        "coluna_descricao",
         mode="before",
     )
     @classmethod
@@ -152,19 +200,19 @@ class Parametros:
     """Os parâmetros da chamada, reunidos para passar às funções de cada operação."""
 
     operacao: str
-    coluna: Optional[str] = None
-    valor: Optional[str] = None
-    coluna_soma: Optional[str] = None
-    coluna_alvo: Optional[str] = None
-    coluna_data: Optional[str] = None
+    coluna: str | None = None
+    valor: str | None = None
+    coluna_soma: str | None = None
+    coluna_alvo: str | None = None
+    coluna_data: str | None = None
     turno: str = "todos"
-    limite: Optional[int] = None
+    limite: int | None = None
     offset: int = 0
     consulta_tipo: str = "atual"
-    ano: Optional[int] = None
-    coluna_tarifa: Optional[str] = None
-    coluna_descricao: Optional[str] = None
-    linha_cabecalho: Optional[int] = None
+    ano: int | None = None
+    coluna_tarifa: str | None = None
+    coluna_descricao: str | None = None
+    linha_cabecalho: int | None = None
 
 
 # ============================================================
@@ -173,30 +221,37 @@ class Parametros:
 # e devolve o resultado daquele arquivo.
 # ============================================================
 
-def _op_contar_linhas(arquivo: Dict[str, Any], p: Parametros) -> Dict[str, Any]:
-    return executar_contar_linhas(arquivo["df"], arquivo["path"], memoria_mb=arquivo.get("memoria_mb"))
+
+def _op_contar_linhas(arquivo: dict[str, Any], p: Parametros) -> dict[str, Any]:
+    return executar_contar_linhas(
+        arquivo["df"], arquivo["path"], memoria_mb=arquivo.get("memoria_mb")
+    )
 
 
-def _op_mostrar_colunas(arquivo: Dict[str, Any], p: Parametros) -> Dict[str, Any]:
+def _op_mostrar_colunas(arquivo: dict[str, Any], p: Parametros) -> dict[str, Any]:
     return executar_mostrar_colunas(arquivo["df"], arquivo["path"])
 
 
-def _op_preview(arquivo: Dict[str, Any], p: Parametros) -> Dict[str, Any]:
+def _op_preview(arquivo: dict[str, Any], p: Parametros) -> dict[str, Any]:
     return executar_preview(arquivo["df"], arquivo["path"])
 
 
-def _op_estatistica(arquivo: Dict[str, Any], p: Parametros) -> Dict[str, Any]:
+def _op_estatistica(arquivo: dict[str, Any], p: Parametros) -> dict[str, Any]:
     return executar_estatistica(arquivo["df"], p.operacao, arquivo["path"])
 
 
-def _op_valores_unicos(arquivo: Dict[str, Any], p: Parametros) -> Dict[str, Any]:
+def _op_valores_unicos(arquivo: dict[str, Any], p: Parametros) -> dict[str, Any]:
     if not p.coluna:
         logger.error("Parâmetro 'coluna' não fornecido")
         return {"erro": "Parâmetro 'coluna' é obrigatório", "sucesso": False}
 
     limite = 15 if p.limite is None else p.limite
     resultado = executar_valores_unicos(
-        df=arquivo["df"], coluna=p.coluna, path=arquivo["path"], limite=limite, offset=p.offset
+        df=arquivo["df"],
+        coluna=p.coluna,
+        path=arquivo["path"],
+        limite=limite,
+        offset=p.offset,
     )
 
     if resultado.get("sucesso"):
@@ -209,60 +264,94 @@ def _op_valores_unicos(arquivo: Dict[str, Any], p: Parametros) -> Dict[str, Any]
     return resultado
 
 
-def _op_contar_por_valor(arquivo: Dict[str, Any], p: Parametros) -> Dict[str, Any]:
-    return executar_contar_por_valor(df=arquivo["df"], coluna=p.coluna, valor=p.valor, path=arquivo["path"])
+def _op_contar_por_valor(arquivo: dict[str, Any], p: Parametros) -> dict[str, Any]:
+    return executar_contar_por_valor(
+        df=arquivo["df"], coluna=p.coluna, valor=p.valor, path=arquivo["path"]
+    )
 
 
-def _op_contar_unicos(arquivo: Dict[str, Any], p: Parametros) -> Dict[str, Any]:
+def _op_contar_unicos(arquivo: dict[str, Any], p: Parametros) -> dict[str, Any]:
     return executar_contar_unicos(
-        df=arquivo["df"], coluna_alvo=p.coluna_alvo, path=arquivo["path"], coluna=p.coluna, valor=p.valor
+        df=arquivo["df"],
+        coluna_alvo=p.coluna_alvo,
+        path=arquivo["path"],
+        coluna=p.coluna,
+        valor=p.valor,
     )
 
 
-def _op_agrupar_e_somar(arquivo: Dict[str, Any], p: Parametros) -> Dict[str, Any]:
+def _op_agrupar_e_somar(arquivo: dict[str, Any], p: Parametros) -> dict[str, Any]:
     return executar_agrupar_e_somar(
-        df=arquivo["df"], coluna=p.coluna, valor=p.valor, coluna_soma=p.coluna_soma, path=arquivo["path"]
+        df=arquivo["df"],
+        coluna=p.coluna,
+        valor=p.valor,
+        coluna_soma=p.coluna_soma,
+        path=arquivo["path"],
     )
 
 
-def _op_agrupar_valores_unicos(arquivo: Dict[str, Any], p: Parametros) -> Dict[str, Any]:
+def _op_agrupar_valores_unicos(
+    arquivo: dict[str, Any], p: Parametros
+) -> dict[str, Any]:
     return executar_agrupar_valores_unicos(
-        df=arquivo["df"], coluna=p.coluna, path=arquivo["path"], limite=p.limite, offset=p.offset
+        df=arquivo["df"],
+        coluna=p.coluna,
+        path=arquivo["path"],
+        limite=p.limite,
+        offset=p.offset,
     )
 
 
-def _op_filtrar_por_turno(arquivo: Dict[str, Any], p: Parametros) -> Dict[str, Any]:
+def _op_filtrar_por_turno(arquivo: dict[str, Any], p: Parametros) -> dict[str, Any]:
     return executar_filtrar_por_turno(
-        df=arquivo["df"], turno=p.turno, coluna_data=p.coluna_data or COLUNA_DATA_PADRAO,
-        path=arquivo["path"], coluna=p.coluna, valor=p.valor, memo=arquivo.get("memo"),
+        df=arquivo["df"],
+        turno=p.turno,
+        coluna_data=p.coluna_data or COLUNA_DATA_PADRAO,
+        path=arquivo["path"],
+        coluna=p.coluna,
+        valor=p.valor,
+        memo=arquivo.get("memo"),
     )
 
 
-def _op_contar_por_turno(arquivo: Dict[str, Any], p: Parametros) -> Dict[str, Any]:
+def _op_contar_por_turno(arquivo: dict[str, Any], p: Parametros) -> dict[str, Any]:
     return executar_contar_por_turno(
-        df=arquivo["df"], coluna_data=p.coluna_data or COLUNA_DATA_PADRAO,
-        path=arquivo["path"], coluna=p.coluna, valor=p.valor, memo=arquivo.get("memo"),
+        df=arquivo["df"],
+        coluna_data=p.coluna_data or COLUNA_DATA_PADRAO,
+        path=arquivo["path"],
+        coluna=p.coluna,
+        valor=p.valor,
+        memo=arquivo.get("memo"),
     )
 
 
-def _op_comparar_por_turno(arquivo: Dict[str, Any], p: Parametros) -> Dict[str, Any]:
+def _op_comparar_por_turno(arquivo: dict[str, Any], p: Parametros) -> dict[str, Any]:
     return executar_comparar_por_turno(
-        df=arquivo["df"], coluna_data=p.coluna_data or COLUNA_DATA_PADRAO,
-        path=arquivo["path"], coluna=p.coluna, valor=p.valor, memo=arquivo.get("memo"),
+        df=arquivo["df"],
+        coluna_data=p.coluna_data or COLUNA_DATA_PADRAO,
+        path=arquivo["path"],
+        coluna=p.coluna,
+        valor=p.valor,
+        memo=arquivo.get("memo"),
     )
 
 
-def _op_leitura_tarifa(arquivo: Dict[str, Any], p: Parametros) -> Dict[str, Any]:
+def _op_leitura_tarifa(arquivo: dict[str, Any], p: Parametros) -> dict[str, Any]:
     logger.info(f"LEITURA_TARIFA | consulta: {p.consulta_tipo} | ano: {p.ano}")
     return executar_leitura_tarifa(
-        df=arquivo["df"], consulta_tipo=p.consulta_tipo, ano=p.ano, path=arquivo["path"],
-        coluna_tarifa=p.coluna_tarifa, coluna_data=p.coluna_data,
-        coluna_descricao=p.coluna_descricao, linha_cabecalho=p.linha_cabecalho,
+        df=arquivo["df"],
+        consulta_tipo=p.consulta_tipo,
+        ano=p.ano,
+        path=arquivo["path"],
+        coluna_tarifa=p.coluna_tarifa,
+        coluna_data=p.coluna_data,
+        coluna_descricao=p.coluna_descricao,
+        linha_cabecalho=p.linha_cabecalho,
     )
 
 
 # Liga o nome de cada operação à função que a executa
-_OPERACOES: Dict[str, Callable[[Dict[str, Any], Parametros], Dict[str, Any]]] = {
+_OPERACOES: dict[str, Callable[[dict[str, Any], Parametros], dict[str, Any]]] = {
     "contar_linhas": _op_contar_linhas,
     "mostrar_colunas": _op_mostrar_colunas,
     "preview": _op_preview,
@@ -286,13 +375,14 @@ _OPERACOES: Dict[str, Callable[[Dict[str, Any], Parametros], Dict[str, Any]]] = 
 # FUNÇÕES DE APOIO
 # ============================================================
 
-def _esquemas(arquivos: List[Dict[str, Any]]) -> Dict[str, Any]:
+
+def _esquemas(arquivos: list[dict[str, Any]]) -> dict[str, Any]:
     """
     Cabeçalho real dos arquivos analisados.
     Se todos têm as mesmas colunas, devolve {"colunas": [...]}.
     Se divergirem, devolve um item por esquema, dizendo quais arquivos pertencem a cada um.
     """
-    arquivos_por_esquema: Dict[tuple, List[str]] = {}
+    arquivos_por_esquema: dict[tuple, list[str]] = {}
     for arquivo in arquivos:
         colunas = tuple(str(coluna) for coluna in arquivo["df"].columns)
         arquivos_por_esquema.setdefault(colunas, []).append(arquivo["nome"])
@@ -306,7 +396,9 @@ def _esquemas(arquivos: List[Dict[str, Any]]) -> Dict[str, Any]:
     return {"colunas_por_esquema": esquemas}
 
 
-def _remover_colunas_repetidas(resultados: Dict[str, Any], arquivos: List[Dict[str, Any]]) -> None:
+def _remover_colunas_repetidas(
+    resultados: dict[str, Any], arquivos: list[dict[str, Any]]
+) -> None:
     """
     A lista de colunas já vai no _resumo_analise. Tira a cópia que cada resultado carregaria
     (nomes_colunas, colunas_disponiveis) para não repetir os mesmos nomes várias vezes ao modelo.
@@ -323,10 +415,14 @@ def _remover_colunas_repetidas(resultados: Dict[str, Any], arquivos: List[Dict[s
 
 def _falhou(resultado: Any) -> bool:
     """True se o resultado de uma operação sobre um arquivo é um erro."""
-    return isinstance(resultado, dict) and (resultado.get("sucesso") is False or "erro" in resultado)
+    return isinstance(resultado, dict) and (
+        resultado.get("sucesso") is False or "erro" in resultado
+    )
 
 
-def _somar_distribuicao_por_turno(resultados: List[Dict[str, Any]], chave_lista: str) -> Dict[str, int]:
+def _somar_distribuicao_por_turno(
+    resultados: list[dict[str, Any]], chave_lista: str
+) -> dict[str, int]:
     """Soma, turno a turno, a quantidade de vários arquivos. Devolve {nome do turno: quantidade total}."""
     totais = {}
     for indice in range(4):
@@ -345,7 +441,9 @@ def _somar_distribuicao_por_turno(resultados: List[Dict[str, Any]], chave_lista:
     return totais
 
 
-def _total_geral(operation: str, resultados_ok: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+def _total_geral(
+    operation: str, resultados_ok: list[dict[str, Any]]
+) -> dict[str, Any] | None:
     """
     Soma, em código, os resultados de vários arquivos (o modelo não precisa somar de cabeça).
     Só vale para operações que SOMAM: contagens, somas e distribuições por turno.
@@ -367,11 +465,13 @@ def _total_geral(operation: str, resultados_ok: List[Dict[str, Any]]) -> Optiona
         return None
 
     total_transacoes = sum(r["total_transacoes"] for r in resultados_ok)
-    geral: Dict[str, Any] = {"total_transacoes": total_transacoes}
+    geral: dict[str, Any] = {"total_transacoes": total_transacoes}
 
     if operation == "filtrar_por_turno":
         if all(r.get("turno") == "todos" for r in resultados_ok):
-            geral["distribuicao_por_turno"] = _somar_distribuicao_por_turno(resultados_ok, "distribuicao_por_turno")
+            geral["distribuicao_por_turno"] = _somar_distribuicao_por_turno(
+                resultados_ok, "distribuicao_por_turno"
+            )
         return geral
 
     # contar_por_turno e comparar_por_turno: quantidade e porcentagem de cada turno, no total
@@ -386,7 +486,11 @@ def _total_geral(operation: str, resultados_ok: List[Dict[str, Any]]) -> Optiona
         if quantidade == 0:
             continue
         porcentagem = round((quantidade / total_transacoes) * 100, 2)
-        por_turno[info["nome"]] = {"quantidade": quantidade, "intervalo": info["intervalo"], "porcentagem": porcentagem}
+        por_turno[info["nome"]] = {
+            "quantidade": quantidade,
+            "intervalo": info["intervalo"],
+            "porcentagem": porcentagem,
+        }
         if quantidade > maior_quantidade:
             turno_com_mais, maior_quantidade = info["nome"], quantidade
 
@@ -395,15 +499,27 @@ def _total_geral(operation: str, resultados_ok: List[Dict[str, Any]]) -> Optiona
         geral["turno_com_mais_uso"] = turno_com_mais
     else:
         geral["dados_turno"] = [
-            {"Turno": nome, "Quantidade": d["quantidade"], "Intervalo": d["intervalo"], "Porcentagem": d["porcentagem"]}
+            {
+                "Turno": nome,
+                "Quantidade": d["quantidade"],
+                "Intervalo": d["intervalo"],
+                "Porcentagem": d["porcentagem"],
+            }
             for nome, d in por_turno.items()
         ]
     return geral
 
 
-def _checar_parametros(operation: str, coluna, valor, coluna_soma, coluna_alvo=None) -> Optional[Dict[str, Any]]:
+def _checar_parametros(
+    operation: str, coluna, valor, coluna_soma, coluna_alvo=None
+) -> dict[str, Any] | None:
     """Erro autoexplicativo se faltar parâmetro obrigatório da operação; None se estiver tudo certo."""
-    campos = {"coluna": coluna, "valor": valor, "coluna_soma": coluna_soma, "coluna_alvo": coluna_alvo}
+    campos = {
+        "coluna": coluna,
+        "valor": valor,
+        "coluna_soma": coluna_soma,
+        "coluna_alvo": coluna_alvo,
+    }
 
     faltam = []
     for nome_campo in _EXIGIDOS.get(operation, ()):
@@ -424,7 +540,11 @@ def _checar_parametros(operation: str, coluna, valor, coluna_soma, coluna_alvo=N
     if operation in _OPERACOES_COM_FILTRO_OPCIONAL and coluna_vazia != valor_vazio:
         return {
             "erro": f"Em '{operation}', 'coluna' e 'valor' (filtro opcional) devem ser informados juntos",
-            "exemplo": {"operation": operation, "coluna": "Descrição da Aplicação", "valor": "Idoso"},
+            "exemplo": {
+                "operation": operation,
+                "coluna": "Descrição da Aplicação",
+                "valor": "Idoso",
+            },
             "sucesso": False,
         }
     return None
@@ -434,24 +554,25 @@ def _checar_parametros(operation: str, coluna, valor, coluna_soma, coluna_alvo=N
 # A TOOL
 # ============================================================
 
+
 @tool("analisar_dados_arquivo", args_schema=AnalisarArgs)
 def analisar_dados_arquivo(
     package_id: str,
     operation: str = "contar_linhas",
     file_filter: str = "",
-    coluna: Optional[str] = None,
-    valor: Optional[str] = None,
-    coluna_soma: Optional[str] = None,
-    coluna_alvo: Optional[str] = None,
-    coluna_data: Optional[str] = None,
-    turno: Optional[str] = None,
-    limite: Optional[int] = None,
+    coluna: str | None = None,
+    valor: str | None = None,
+    coluna_soma: str | None = None,
+    coluna_alvo: str | None = None,
+    coluna_data: str | None = None,
+    turno: str | None = None,
+    limite: int | None = None,
     offset: int = 0,
     consulta_tipo: str = "atual",
-    ano: Optional[int] = None,
-    coluna_tarifa: Optional[str] = None,
-    coluna_descricao: Optional[str] = None,
-    linha_cabecalho: Optional[int] = None,
+    ano: int | None = None,
+    coluna_tarifa: str | None = None,
+    coluna_descricao: str | None = None,
+    linha_cabecalho: int | None = None,
 ) -> Any:
     """
     Executa operações de análise em arquivos já baixados/processados.
@@ -483,7 +604,9 @@ def analisar_dados_arquivo(
     try:
         turno = turno if turno not in (None, "") else "todos"
 
-        erro_parametros = _checar_parametros(operation, coluna, valor, coluna_soma, coluna_alvo)
+        erro_parametros = _checar_parametros(
+            operation, coluna, valor, coluna_soma, coluna_alvo
+        )
         if erro_parametros:
             logger.error(
                 f"{erro_parametros['erro']} | recebido: coluna={coluna!r}, valor={valor!r}, "
@@ -521,9 +644,19 @@ def analisar_dados_arquivo(
         logger.info(f"{len(arquivos_para_analisar)} arquivo(s) obtido(s)")
 
         parametros = Parametros(
-            operacao=operation, coluna=coluna, valor=valor, coluna_soma=coluna_soma, coluna_alvo=coluna_alvo,
-            coluna_data=coluna_data, turno=turno, limite=limite, offset=offset, consulta_tipo=consulta_tipo,
-            ano=ano, coluna_tarifa=coluna_tarifa, coluna_descricao=coluna_descricao,
+            operacao=operation,
+            coluna=coluna,
+            valor=valor,
+            coluna_soma=coluna_soma,
+            coluna_alvo=coluna_alvo,
+            coluna_data=coluna_data,
+            turno=turno,
+            limite=limite,
+            offset=offset,
+            consulta_tipo=consulta_tipo,
+            ano=ano,
+            coluna_tarifa=coluna_tarifa,
+            coluna_descricao=coluna_descricao,
             linha_cabecalho=linha_cabecalho,
         )
 
@@ -537,7 +670,7 @@ def analisar_dados_arquivo(
             }
 
         # ---------- Roda a operação em cada arquivo ----------
-        resultados: Dict[str, Any] = {}
+        resultados: dict[str, Any] = {}
         arquivos_analisados = 0
         arquivos_com_erro = 0
 
@@ -553,16 +686,18 @@ def analisar_dados_arquivo(
                 resultados[nome] = funcao_da_operacao(arquivo, parametros)
             except Exception as e:
                 # O detalhe completo vai para o log; o modelo recebe só a mensagem curta
-                logger.error(f"Erro ao analisar arquivo {nome}: {str(e)}")
+                logger.error(f"Erro ao analisar arquivo {nome}: {e!s}")
                 logger.error(f"Traceback: {traceback.format_exc()}")
                 resultados[nome] = {
-                    "erro": f"Erro ao analisar arquivo {nome}: {str(e)}",
+                    "erro": f"Erro ao analisar arquivo {nome}: {e!s}",
                     "sucesso": False,
                 }
 
             if _falhou(resultados[nome]):
                 arquivos_com_erro += 1
-                logger.warning(f"Operação '{operation}' falhou em {nome}: {resultados[nome].get('erro')}")
+                logger.warning(
+                    f"Operação '{operation}' falhou em {nome}: {resultados[nome].get('erro')}"
+                )
             else:
                 arquivos_analisados += 1
                 logger.info(f"Operação '{operation}' concluída com sucesso")
@@ -577,7 +712,10 @@ def analisar_dados_arquivo(
                 "sucesso_geral": arquivos_analisados > 0,
             }
 
-            if operation not in ("mostrar_colunas", "preview"):  # estas já devolvem as colunas
+            if operation not in (
+                "mostrar_colunas",
+                "preview",
+            ):  # estas já devolvem as colunas
                 resumo.update(_esquemas(arquivos_para_analisar))
                 _remover_colunas_repetidas(resultados, arquivos_para_analisar)
 
@@ -592,23 +730,27 @@ def analisar_dados_arquivo(
                 if total_geral is not None:
                     total_geral["arquivos_somados"] = len(resultados_ok)
                     if arquivos_com_erro:
-                        total_geral["atencao"] = f"{arquivos_com_erro} arquivo(s) com erro ficaram de fora da soma"
+                        total_geral[
+                            "atencao"
+                        ] = f"{arquivos_com_erro} arquivo(s) com erro ficaram de fora da soma"
                     resumo["total_geral"] = total_geral
 
             if resultado_obtencao.get("aviso"):
                 resumo["aviso"] = resultado_obtencao["aviso"]
 
             resultados["_resumo_analise"] = resumo
-            logger.info(f"RESUMO: {arquivos_analisados} arquivo(s) analisado(s), {arquivos_com_erro} com erro")
+            logger.info(
+                f"RESUMO: {arquivos_analisados} arquivo(s) analisado(s), {arquivos_com_erro} com erro"
+            )
 
         except Exception as e:
-            logger.error(f"Erro ao gerar resumo: {str(e)}")
+            logger.error(f"Erro ao gerar resumo: {e!s}")
             logger.error(f"Traceback: {traceback.format_exc()}")
 
         return resultados
 
     except Exception as e:
-        error_msg = f"Falha geral na análise: {str(e)}"
+        error_msg = f"Falha geral na análise: {e!s}"
         logger.error(error_msg)
         logger.error(f"Traceback completo: {traceback.format_exc()}")
         return {

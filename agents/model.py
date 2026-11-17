@@ -1,5 +1,6 @@
 import logging
 import os
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -11,7 +12,7 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 if "gemini" in MODEL_NAME.lower():
     from langchain_google_genai import ChatGoogleGenerativeAI
-    
+
     if GEMINI_API_KEY:
         logger.info(f"Modelo:{MODEL_NAME} (Gemini API)")
         model = ChatGoogleGenerativeAI(
@@ -37,5 +38,5 @@ else:
         base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
         num_ctx=16384,
         temperature=0.6,
-        reasoning=False
+        reasoning=False,
     )

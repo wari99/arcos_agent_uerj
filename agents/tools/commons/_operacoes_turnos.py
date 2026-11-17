@@ -17,7 +17,7 @@ só o cálculo do turno fica em calcular_faixas_horarias):
 
 import logging
 import traceback
-from typing import Any, Dict, Optional
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 # ============================================================
 # FUNÇÃO DE APOIO
 # ============================================================
+
 
 def calcular_faixas_horarias(datas: pd.Series) -> np.ndarray:
     """
@@ -46,23 +47,30 @@ def calcular_faixas_horarias(datas: pd.Series) -> np.ndarray:
     minutos_totais = datas.dt.hour * 60 + datas.dt.minute
 
     faixas = np.zeros(len(datas), dtype=int)
-    faixas[minutos_totais == 0] = 3                                   # 00:00 exato conta como Noite
-    faixas[(minutos_totais >= 1) & (minutos_totais <= 360)] = 0       # 00:01 até 06:00 = Madrugada
-    faixas[(minutos_totais >= 361) & (minutos_totais <= 720)] = 1     # 06:01 até 12:00 = Manhã
-    faixas[(minutos_totais >= 721) & (minutos_totais <= 1080)] = 2    # 12:01 até 18:00 = Tarde
-    faixas[minutos_totais > 1080] = 3                                 # depois das 18:00 = Noite
+    faixas[minutos_totais == 0] = 3  # 00:00 exato conta como Noite
+    faixas[
+        (minutos_totais >= 1) & (minutos_totais <= 360)
+    ] = 0  # 00:01 até 06:00 = Madrugada
+    faixas[
+        (minutos_totais >= 361) & (minutos_totais <= 720)
+    ] = 1  # 06:01 até 12:00 = Manhã
+    faixas[
+        (minutos_totais >= 721) & (minutos_totais <= 1080)
+    ] = 2  # 12:01 até 18:00 = Tarde
+    faixas[minutos_totais > 1080] = 3  # depois das 18:00 = Noite
 
     return faixas
 
-def executar_filtrar_por_turno( # operacao: filtrar por turno
+
+def executar_filtrar_por_turno(  # operacao: filtrar por turno
     df: pd.DataFrame,
     turno: str,
     coluna_data: str,
     path: str,
-    coluna: str = None,
-    valor: str = None,
-    memo: Optional[dict] = None,
-) -> Dict[str, Any]:
+    coluna: str | None = None,
+    valor: str | None = None,
+    memo: dict | None = None,
+) -> dict[str, Any]:
     """
     Filtra transações por turno específico (ou todos) com filtro opcional.
 
@@ -75,10 +83,14 @@ def executar_filtrar_por_turno( # operacao: filtrar por turno
         memo: dicionário do cache do arquivo, para reaproveitar o cálculo dos turnos
     """
 
-    logger.info(f"FILTRAR_POR_TURNO: turno={turno}, filtro={coluna}={valor}, coluna_data={coluna_data}")
+    logger.info(
+        f"FILTRAR_POR_TURNO: turno={turno}, filtro={coluna}={valor}, coluna_data={coluna_data}"
+    )
 
     try:
-        coluna_data, erro = validar_coluna(df, coluna_data, "Coluna de data '{}' não encontrada")
+        coluna_data, erro = validar_coluna(
+            df, coluna_data, "Coluna de data '{}' não encontrada"
+        )
         if erro:
             return erro
         if not coluna_data:
@@ -96,14 +108,16 @@ def executar_filtrar_por_turno( # operacao: filtrar por turno
             datas = df[coluna_data]
             if not pd.api.types.is_datetime64_any_dtype(datas):
                 # "02/01/2026" é 2 de janeiro (dia/mês/ano) nos arquivos da base. Sem avisar isso, o pandas
-                # lê como mês/dia e datas como "31/12/2025" 
+                # lê como mês/dia e datas como "31/12/2025"
                 primeiro_valor = datas.dropna().astype(str).head(1)
                 dia_primeiro = len(primeiro_valor) > 0 and "/" in primeiro_valor.iloc[0]
                 datas = pd.to_datetime(datas, errors="coerce", dayfirst=dia_primeiro)
 
             quantidade_invalidas = int(datas.isna().sum())
             if quantidade_invalidas > 0:
-                logger.warning(f"{quantidade_invalidas} data(s) inválida(s) em '{coluna_data}': contadas como Madrugada")
+                logger.warning(
+                    f"{quantidade_invalidas} data(s) inválida(s) em '{coluna_data}': contadas como Madrugada"
+                )
 
             faixas_horarias = calcular_faixas_horarias(datas)
             logger.info("Faixas horárias calculadas")
@@ -131,13 +145,17 @@ def executar_filtrar_por_turno( # operacao: filtrar por turno
                     "sucesso": False,
                 }
 
-            mascara &= (faixas_horarias == turno_num)
-            logger.info(f"Filtrado para turno {turno_num} ({FAIXAS_HORARIAS[turno_num]['nome']})")
+            mascara &= faixas_horarias == turno_num
+            logger.info(
+                f"Filtrado para turno {turno_num} ({FAIXAS_HORARIAS[turno_num]['nome']})"
+            )
         else:
             logger.info("Usando todos os turnos")
 
         if coluna is not None and valor is not None:
-            coluna, erro = validar_coluna(df, coluna, "Coluna de filtro '{}' não encontrada")
+            coluna, erro = validar_coluna(
+                df, coluna, "Coluna de filtro '{}' não encontrada"
+            )
             if erro:
                 return erro
             linha_casou, _ = mascara_por_valor(df, coluna, valor)
@@ -178,19 +196,20 @@ def executar_filtrar_por_turno( # operacao: filtrar por turno
         }
 
     except Exception as e:
-        mensagem_erro = f"Erro ao filtrar por turno: {str(e)}"
+        mensagem_erro = f"Erro ao filtrar por turno: {e!s}"
         logger.error(mensagem_erro)
         logger.error(traceback.format_exc())
         return {"erro": mensagem_erro, "sucesso": False}
 
-def executar_contar_por_turno( # operacao: contar por turno
+
+def executar_contar_por_turno(  # operacao: contar por turno
     df: pd.DataFrame,
     coluna_data: str,
     path: str,
-    coluna: str = None,
-    valor: str = None,
-    memo: Optional[dict] = None,
-) -> Dict[str, Any]:
+    coluna: str | None = None,
+    valor: str | None = None,
+    memo: dict | None = None,
+) -> dict[str, Any]:
     """
     Distribuição das transações por turno, com porcentagens e o turno de maior uso. O filtro (coluna contém valor) é opcional; sem ele, usa todas as linhas.
     """
@@ -201,7 +220,9 @@ def executar_contar_por_turno( # operacao: contar por turno
     logger.info(f"Coluna de data: {coluna_data}")
 
     try:
-        coluna_data, erro = validar_coluna(df, coluna_data, "Coluna de data '{}' não encontrada")
+        coluna_data, erro = validar_coluna(
+            df, coluna_data, "Coluna de data '{}' não encontrada"
+        )
         if erro:
             return erro
         if not coluna_data:
@@ -225,7 +246,9 @@ def executar_contar_por_turno( # operacao: contar por turno
 
             quantidade_invalidas = int(datas.isna().sum())
             if quantidade_invalidas > 0:
-                logger.warning(f"{quantidade_invalidas} data(s) inválida(s) em '{coluna_data}': contadas como Madrugada")
+                logger.warning(
+                    f"{quantidade_invalidas} data(s) inválida(s) em '{coluna_data}': contadas como Madrugada"
+                )
 
             faixas_horarias = calcular_faixas_horarias(datas)
             logger.info("Faixas horárias calculadas")
@@ -237,7 +260,9 @@ def executar_contar_por_turno( # operacao: contar por turno
 
         tem_filtro = bool(coluna) and valor is not None
         if tem_filtro:
-            coluna, erro = validar_coluna(df, coluna, "Coluna de filtro '{}' não encontrada")
+            coluna, erro = validar_coluna(
+                df, coluna, "Coluna de filtro '{}' não encontrada"
+            )
             if erro:
                 return erro
             linha_casou, _ = mascara_por_valor(df, coluna, valor)
@@ -302,19 +327,20 @@ def executar_contar_por_turno( # operacao: contar por turno
         }
 
     except Exception as e:
-        mensagem_erro = f"Erro ao contar por turno: {str(e)}"
+        mensagem_erro = f"Erro ao contar por turno: {e!s}"
         logger.error(mensagem_erro)
         logger.error(traceback.format_exc())
         return {"erro": mensagem_erro, "sucesso": False}
 
-def executar_comparar_por_turno( # operacao: comparar por turno
+
+def executar_comparar_por_turno(  # operacao: comparar por turno
     df: pd.DataFrame,
     coluna_data: str,
     path: str,
-    coluna: str = None,
-    valor: str = None,
-    memo: Optional[dict] = None,
-) -> Dict[str, Any]:
+    coluna: str | None = None,
+    valor: str | None = None,
+    memo: dict | None = None,
+) -> dict[str, Any]:
     """
     Agregação por turno para gráficos e comparações: quantidade de transações em cada turno. O filtro (coluna contém valor) é opcional.
 
@@ -332,7 +358,9 @@ def executar_comparar_por_turno( # operacao: comparar por turno
     logger.info(f"Filtro: {coluna}='{valor}' (opcional)")
 
     try:
-        coluna_data, erro = validar_coluna(df, coluna_data, "Coluna de data '{}' não encontrada")
+        coluna_data, erro = validar_coluna(
+            df, coluna_data, "Coluna de data '{}' não encontrada"
+        )
         if erro:
             return erro
         if not coluna_data:
@@ -356,7 +384,9 @@ def executar_comparar_por_turno( # operacao: comparar por turno
 
             quantidade_invalidas = int(datas.isna().sum())
             if quantidade_invalidas > 0:
-                logger.warning(f"{quantidade_invalidas} data(s) inválida(s) em '{coluna_data}': contadas como Madrugada")
+                logger.warning(
+                    f"{quantidade_invalidas} data(s) inválida(s) em '{coluna_data}': contadas como Madrugada"
+                )
 
             faixas_horarias = calcular_faixas_horarias(datas)
             logger.info("Faixas horárias calculadas")
@@ -367,7 +397,9 @@ def executar_comparar_por_turno( # operacao: comparar por turno
         mascara = np.ones(len(df), dtype=bool)
 
         if coluna and valor:
-            coluna, erro = validar_coluna(df, coluna, "Coluna de filtro '{}' não encontrada")
+            coluna, erro = validar_coluna(
+                df, coluna, "Coluna de filtro '{}' não encontrada"
+            )
             if erro:
                 return erro
             linha_casou, _ = mascara_por_valor(df, coluna, valor)
@@ -395,12 +427,14 @@ def executar_comparar_por_turno( # operacao: comparar por turno
             info_turno = FAIXAS_HORARIAS[turno_idx]
             porcentagem = round((quantidade / total_linhas) * 100, 2)
 
-            dados_turno.append({
-                "Turno": info_turno["nome"],
-                "Quantidade": quantidade,
-                "Intervalo": info_turno["intervalo"],
-                "Porcentagem": porcentagem,
-            })
+            dados_turno.append(
+                {
+                    "Turno": info_turno["nome"],
+                    "Quantidade": quantidade,
+                    "Intervalo": info_turno["intervalo"],
+                    "Porcentagem": porcentagem,
+                }
+            )
             logger.info(f"{info_turno['nome']}: {quantidade} ({porcentagem}%)")
 
         if not dados_turno:
@@ -410,7 +444,9 @@ def executar_comparar_por_turno( # operacao: comparar por turno
                 "sucesso": False,
             }
 
-        logger.info(f"Comparação por turno gerada: {total_linhas} transações em {len(dados_turno)} turno(s)")
+        logger.info(
+            f"Comparação por turno gerada: {total_linhas} transações em {len(dados_turno)} turno(s)"
+        )
 
         return {
             "coluna": coluna,
@@ -422,7 +458,7 @@ def executar_comparar_por_turno( # operacao: comparar por turno
         }
 
     except Exception as e:
-        mensagem_erro = f"Erro ao comparar por turno: {str(e)}"
+        mensagem_erro = f"Erro ao comparar por turno: {e!s}"
         logger.error(mensagem_erro)
         logger.error(traceback.format_exc())
         return {"erro": mensagem_erro, "sucesso": False}

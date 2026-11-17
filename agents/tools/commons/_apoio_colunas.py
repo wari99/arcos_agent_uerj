@@ -15,9 +15,9 @@ import logging
 import re
 import unicodedata
 from functools import lru_cache
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
+
 import pandas as pd
-import re
 
 # regex que casa qualquer caractere que NÃO seja letra minúscula ou número.
 # Usado para limpar nomes de coluna encontrados: "Qtd. Transações" -> "qtdtransacoes"
@@ -113,7 +113,7 @@ def resolver_coluna(df: pd.DataFrame, nome):
 
 def validar_coluna(
     df: pd.DataFrame, nome, mensagem: str, **extras
-) -> Tuple[Any, Optional[Dict[str, Any]]]:
+) -> tuple[Any, dict[str, Any] | None]:
     """
     Confere se a coluna existe (corrigindo pequenos erros de digitação com resolver_coluna).
 
@@ -146,7 +146,7 @@ def validar_coluna(
 
 def mascara_por_valor(
     df: pd.DataFrame, coluna: str, valor
-) -> Tuple[pd.Series, List[str]]:
+) -> tuple[pd.Series, list[str]]:
     """
     Marca (True/False) as linhas em que a coluna CONTÉM o valor procurado.
     A busca é parcial, ignora acento e ignora maiúsculas/minúsculas.
@@ -176,7 +176,7 @@ def mascara_por_valor(
 
 def filtrar_por_valor(
     df: pd.DataFrame, coluna: str, valor
-) -> Tuple[pd.DataFrame, List[str]]:
+) -> tuple[pd.DataFrame, list[str]]:
     """
     Igual a mascara_por_valor, mas já devolve o DataFrame só com as linhas que casaram
     (e a lista dos valores distintos que casaram).
