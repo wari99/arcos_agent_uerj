@@ -1,4 +1,4 @@
-<h1 align="center">  ARCOS-RJ 
+<h1 align="center">  ARCOS-RJ
 
 ![GitHub Status](https://img.shields.io/badge/Status-Work%20In%20Progress-yellow)
 ![Python](https://img.shields.io/badge/python-=3.13.12-blue?logo=python)
@@ -15,7 +15,7 @@ O sistema é um assistente conversacional que facilita o acesso e análise de da
 
 ---
 
-## Motivação 
+## Motivação
 
 A plataforma [Dados Abertos do RJ](https://dadosabertos.rj.gov.br/) contém um extenso acervo de informações públicas. Os usuários da plataforma podem encontrar alguns desafios ao navegar entre os grupos de arquivos:
 
@@ -23,7 +23,7 @@ A plataforma [Dados Abertos do RJ](https://dadosabertos.rj.gov.br/) contém um e
 - **Navegação é confusa**: usuários que não conhecem a plataforma não são capazes de encontrar informações desejadas com facilidade
 - **Volume de arquivos**: não há clareza na categorização e descrição dos recursos armazenados
 - **Formatos dos arquivos**: diferentes formatos (CSV, XLSX, ZIP, PDF) exigem processamento manual
-- **Alta complexidade em análises**: é necessário realizar download dos arquivos e descompactá-los para poder visualizar-los. Para fazer análises simples é necessário conhecer ferramentas que manipulem planilhas. 
+- **Alta complexidade em análises**: é necessário realizar download dos arquivos e descompactá-los para poder visualizar-los. Para fazer análises simples é necessário conhecer ferramentas que manipulem planilhas.
 
 ### Solução desenvolvida:
 
@@ -39,15 +39,15 @@ Dessa forma, tanto um usuário leigo quanto um usuário mais experiente e conhec
 
 ---
 
-## Funcionalidades  
+## Funcionalidades
 
 ### Principais Ferramentas / Tools do Agente
 
 | Ferramenta/Tool | Capacidade |
 |-----------|-----------|
 | **listar_bases** | Descobre as bases disponíveis no portal |
-| **buscar_infos_base** | Encontra bases por nome ou descrição | 
-| **listar_recursos_da_base** | Lista arquivos disponíveis numa base específica | 
+| **buscar_infos_base** | Encontra bases por nome ou descrição |
+| **listar_recursos_da_base** | Lista arquivos disponíveis numa base específica |
 | **baixar_arquivo_dados** | Baixa e processa arquivos (CSV, XLSX, ZIP) |
 | **analisar_dados_arquivo** | Executa análises e operações sobre dados |
 | **gerar_graficos** | Cria visualizações dos dados |
@@ -67,8 +67,8 @@ Dessa forma, tanto um usuário leigo quanto um usuário mais experiente e conhec
    → Detecta período: março (arquivo consolidado)
    → Baixa dados automaticamente
    → Analisa e filtra por "ÔNIBUS"
-   
-   Em março de 2025, foram registradas **3.320.000** transações 
+
+   Em março de 2025, foram registradas **3.320.000** transações
    de gratuidade no modal ÔNIBUS. 📊
 ```
 
@@ -81,9 +81,9 @@ Dessa forma, tanto um usuário leigo quanto um usuário mais experiente e conhec
    → Base: setram_sgr
    → Período: julho de 2024 (consolidado)
    → Localiza linha: METRÔ + Idoso
-   
-   Em julho de 2024, **500.000** idosos utilizaram o METRÔ 
-   através do programa de gratuidade. 
+
+   Em julho de 2024, **500.000** idosos utilizaram o METRÔ
+   através do programa de gratuidade.
 ```
 
 ### Exemplo 3: Gerar visualização
@@ -95,7 +95,7 @@ Dessa forma, tanto um usuário leigo quanto um usuário mais experiente e conhec
    → Baixa dados de abril
    → Agrupa por turno (manhã, tarde, noite, madrugada)
    → Gera gráfico de barras
-   
+
    📊 Gráfico salvo! [Visualização]
    Maior uso: **Tarde** com 45% das transações.
 ```
@@ -108,7 +108,7 @@ Dessa forma, tanto um usuário leigo quanto um usuário mais experiente e conhec
 🏖️ ARCOS-RJ:
    → Base: concessionaria-metrorio
    → Operação: leitura_tarifa (atual)
-   
+
    A passagem do MetrôRio hoje custa **R$ 7,90**. 💰
 ```
 
@@ -122,15 +122,16 @@ Dessa forma, tanto um usuário leigo quanto um usuário mais experiente e conhec
 
 ## Como Usar
 
-> [!IMPORTANT]  
+> [!IMPORTANT]
 > O agente foi desenvolvido em ambiente MacOS. Portanto, algumas ferramentas do projeto podem depender de compatibilidade com Unix.
 > No Windows, o uso do *make* pelo PowerShell pode apresentar problemas nas configurações de Path. Dê preferência para o WSL para utilizar os comandos abaixo.
 
 ### I. Pré-requisitos
 
 - [uv](https://docs.astral.sh/uv/getting-started/installation/)
-- [make](https://www.gnu.org/software/make/) 
+- [make](https://www.gnu.org/software/make/)
 - LLM Model: chave da **Gemini API** *ou* projeto no **Google Cloud (Vertex AI)** *ou* **Ollama** rodando localmente. Para outras LLMs, modificar em model.py
+- [pre-commit](https://pre-commit.com/) para modificações
 
 ### II. Clonar o repositório
 
@@ -194,7 +195,7 @@ make web
 ## 🔐 API - endpoints do Portal de Dados Abertos
 
 ```env
-# .env: 
+# .env:
 
 URL_LISTAR_BASES=https://dadosabertos.rj.gov.br/api/3/action/package_list
 URL_BUSCAR_BASE=https://dadosabertos.rj.gov.br/api/3/action/package_search?q={}
@@ -227,8 +228,8 @@ URL_CONSULTAR_PROCESSAR_ARQUIVO=https://dadosabertos.rj.gov.br/api/3/action/pack
 
 ---
 
-**Departamento de Ciência da Computação**  
-**Instituto de Matemática e Estatística (IME)**  
+**Departamento de Ciência da Computação**
+**Instituto de Matemática e Estatística (IME)**
 **Universidade do Estado do Rio de Janeiro (UERJ)**
 
 
